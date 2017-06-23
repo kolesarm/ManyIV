@@ -3,7 +3,7 @@
 #'
 #' Sample of males born in the US from 5% sample of the 1980 Census for men
 #' born 1930-3x9
-#' @format A data frame with 329,509 observations on 9 variables:
+#' @format A data frame with 329,509 observations on 10 variables:
 #'
 #' \describe{
 #'
@@ -16,6 +16,8 @@
 #' \item{married}{Indicator for being married}
 #'
 #' \item{qob}{Quarter of birth}
+#'
+#' \item{sob}{State of birth (FIPS code)}
 #'
 #' \item{black}{Indicator for being black}
 #'

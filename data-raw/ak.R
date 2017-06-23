@@ -40,6 +40,8 @@ ak$yob <- as.integer(ak$yob)
 ak80 <- data.frame(ak[ak$census==80 & ak$yob<=1939 & ak$yob>=1930, ])
 ak80$census <- NULL
 ak80$v26 <- NULL                        # uniformly zero
-ak80 <- ak80[, c("age", "education", "lwage", "married", "qob",
+ak80 <- ak80[, c("age", "education", "lwage", "married", "qob", "sob",
                  "black", "smsa", "yob", "division")]
 devtools::use_data(ak80, overwrite=TRUE, internal=FALSE)
+## Store as Stata to compare results
+foreign::write.dta(ak80, "ak80.dta")

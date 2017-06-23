@@ -1,11 +1,3 @@
-## load("/home/kolesarm/research/manyiv-md/code/matchStata/star1.RData")
-## dd <- list(Z=Z, W=W, Y=Y)
-## rm(Z, W, Y)
-## Y <- Matrix::Matrix(dd$Y)
-## Z <- Matrix::Matrix(dd$Z)
-## W <- Matrix::Matrix(dd$W)
-## d <- IVData(Y,Z,W)
-
 bob <- function(be, Om) drop(c(1, -be) %*% Om %*% c(1, -be))
 aoa <- function(be, Om) drop(crossprod(c(be, 1), solve(Om, c(be, 1))))
 ## Duplication, elimination, and commutation matrices, same as
@@ -23,29 +15,41 @@ N2 <- rbind(c(1, 0, 0, 0), c(0, 1/2, 1/2, 0 ), c(0, 1/2, 1/2, 0),
 #' Convert data to standardized format for use with low-level functions. Uses
 #' \code{Matrix} package, which speeds up calculations.
 #'
-#' @param Y [n x 2] class \code{Matrix}
+#' @param Y n-vector
+#' @param X n-vector
 #' @param Z [n x k] Matrix of instruments
 #' @param W [n x ell] Matrix of covariates
 #' @param moments if \code{TRUE}, compute estimates of third and fourth moments
 #'     of the reduced-form errors based on least squares residuals
 #' @export
-IVData <- function(Y, Z, W, moments=TRUE) {
+IVData <- function(Y, X, Z, W, moments=TRUE) {
     ols <- function(X, Y)
         Matrix::solve(Matrix::crossprod(X), Matrix::crossprod(X, Y))
+    d <- list(l=W@Dim[2], k=Z@Dim[2], n=Z@Dim[1], Z=Z, W=W,
+              Y=cbind(Y, X))
+    Zt <- if (d$l==0)  {
+              Z
+          } else {
+              Z-W %*% ols(W, Z)
+          }
+    d$Yt <- if (d$l==0)  {
+                d$Y
+          } else {
+              d$Y-W %*% ols(W, d$Y)
+          }
 
-    Zt <- Z-W %*% ols(W, Z)
-    d <- list(l=W@Dim[2], k=Zt@Dim[2], n=Zt@Dim[1])
     d$nu <- d$n-d$k-d$l             # degrees of freedom
     X <- Matrix::cBind(Z, W)
-    hatPi <- ols(X, Y)
-    d$S <- as.matrix(Matrix::crossprod(Y-X%*%hatPi) / d$nu)
-    d$T <- as.matrix(Matrix::crossprod(Zt %*% hatPi[1:d$k, ]) / d$n)
+    hatPi <- ols(X, d$Y)
+    d$S <- as.matrix(Matrix::crossprod(d$Y-X%*%hatPi) / d$nu)
+    d$Yhatp <- Zt %*% hatPi[1:d$k, ]
+    d$T <- as.matrix(Matrix::crossprod(d$Yhatp) / d$n)
     d$ei <- sort(eigen(solve(d$S, d$T))$values) # [m_min, m_max]
 
     if(moments) {
         d$M <- Matrix::Diagonal(d$n) -
             X %*% Matrix::solve(Matrix::crossprod(X), Matrix::t(X))
-        V <- Y-X %*% hatPi
+        V <- d$Y-X %*% hatPi
         vi <- function(i) kronecker(V[i, ]%o%V[i, ], V[i, ])
         d$Psi3 <- matrix(rowSums(sapply(1:d$n, vi)), ncol=2)/sum(d$M^3)
 
@@ -67,17 +71,118 @@ IVData <- function(Y, Z, W, moments=TRUE) {
     structure(d, class="IVData")
 }
 
+#' Fit instrumental-variable regression
+#' @param formula specification of the regression relationship and the
+#'     instruments of the form \code{y ~ x + w1 + w2 | z1 + z2 + z3}, where
+#'     \code{y} is the outcome variable, \code{x} is a scalar endogenous
+#'     variable, \code{w1,w2} are exogenous regressors, and \code{z1,z2,z3} are
+#'     excluded instruments.
+#' @param data optional data frame, list or environment (or object coercible by
+#'     \code{as.data.frame} to a data frame) containing the outcome and running
+#'     variables in the model. If not found in \code{data}, the variables are
+#'     taken from \code{environment(formula)}, typically the environment from
+#'     which the function is called.
+#' @param subset optional vector specifying a subset of observations to be used
+#'     in the fitting process.
+#' @param na.action function which indicates what should happen when the data
+#'     contain \code{NA}s. The default is set by the \code{na.action} setting of
+#'     \code{options} (usually \code{na.omit}).
+#' @param inference Vector specifying inference method(s). The elements of
+#'     the vector can consist of the following methods:
+#' \describe{
+#'
+#'   \item{"standard"}{Report inference based on tsls, liml, and mbtsls, along
+#'                     with homoscedastic heteroscedasticity-robust standard
+#'                     errors valid under standard asymptotic sequence}
+#'
+#'   \item{"re"}{Inference based on Hessian of random effects likelihood}
+#'
+#'   \item{"il"}{Inference based on Hessian of invariant likelihood, evaluated
+#'               numerically}
+#'
+#'   \item{"lil"}{Inference based on information matrix of limited
+#'               information likelihood}
+#'
+#' }
+IVreg <- function (formula, data, subset, na.action, inference="standard") {
+    formula <- Formula::as.Formula(formula)
+    cl <- mf <- match.call(expand.dots = FALSE)
+    m <- match(c("formula", "data", "subset", "na.action"), names(mf), 0L)
+    mf <- mf[c(1L, m)]
+    mf$formula <- formula
+    mf[[1L]] <- quote(stats::model.frame)
+    mf <- eval(mf, parent.frame())
 
+    Y <- model.response(mf, "numeric")
+    mt <- terms(formula, data = data)
+    mtX <- terms(formula, data = data, rhs = 1)
+    Xname <- attr(mtX, "term.labels")[1]
+    W <- model.matrix(mtX, mf)
+    X <- W[, Xname]
+    W <- Matrix::Matrix(W[, !(colnames(W) %in% Xname)])
+    mtZ <- delete.response(terms(formula, data = data, rhs = 2))
+    Z <- model.matrix(mtZ, mf)
+    ## Remove intercept now, using attr(mtZ, "intercept") <- 0 won't help if Z
+    ## consists of indicators
+    Z <- Matrix::Matrix(Z[, !colnames(Z) %in% colnames(W)])
 
+    d <- IVData(Y, X, Z, W, moments=FALSE)
+
+    est <- data.frame(row.names=c("ols", "tsls", "liml", "mbtsls", "emd"))
+    ret <- structure(list(IVData=d, call=cl, formula=formula(formula),
+                                            na.action=attr(mf, "na.action"),
+                                            estimate=est),
+                     class="IVResults")
+
+    if ("standard" %in% inference) {
+        r <- IVreg.fit(d)
+        ret$estimate[-5, "beta"] <- r$beta
+        ret$estimate[-5, "se"] <- r$se
+        ret$estimate[-5, "ser"] <- r$ser
+    }
+
+    if ("lil" %in% inference) {
+        r <- IVregLI.fit(d)
+        ret$estimate["liml", "beta"] <- r$beta
+        ret$estimate["liml", "lil"] <- r$se
+    }
+
+    if ("re" %in% inference) {
+        r <- IVregRE.fit(d)
+        ret$estimate["liml", "beta"] <- r$beta
+        ret$estimate["liml", "re"] <- r$se
+    }
+
+    if ("il" %in% inference) {
+        r <- IVregIL.fit(d)
+        ret$estimate["liml", "beta"] <- r$beta
+        ret$estimate["liml", "il"] <- r$se
+    }
+
+    ret
+}
 
 
 IVreg.fit <- function(d) {
-    ## Estimates of beta
+    ## 1. Estimates of beta
     mkap <- c(-d$nu/d$n, 0, d$ei[1], d$k/d$n)              # m(kappa)
     be.den <- function(m) d$T[2, 2]-m*d$S[2, 2] # denominator
     be <- sapply(mkap, function(m) (d$T[1, 2]- m * d$S[1, 2])/be.den(m))
-    names(be) <- c("ols", "tsls", "liml", "mbtsls")
 
+    ## 2. Stata standard errors
+    he <- function(be) d$Yt[, 1]- d$Yt[, 2]*be
+    hat.sig <- function(be) drop(crossprod(he(be))) / d$n
+    se <- sqrt(sapply(be, hat.sig) / (d$n*pmax(be.den(mkap), 0)))
+    sm <- d$n/(d$n - d$l-1)
+    se[1] <- se[1]*sqrt(sm)
+
+    ## 3. Stata robust standard errors
+    num <- sapply(2:4, function(j) drop(crossprod(d$Yhatp[, 2]*he(be[j]))))
+    ser <- sqrt(c(drop(crossprod(d$Yt[, 2]*he(be[1])))*sm, num)) /
+        pmax(d$n*pmax(be.den(mkap), 0))
+
+    names(be) <- names(se) <- names(ser) <- c("ols", "tsls", "liml", "mbtsls")
+    list(beta=be, se=se, ser=ser, lam=NA, Om=d$S)
 }
 
 
@@ -131,4 +236,16 @@ IVregMD.fit <- function(d, weight="LIML") {
     umd.se <- sqrt(c(se2(Del), se2(DelN))/d$n)
 
     list(beta=r2$par[1], liml.se=liml.se, umd.se=umd.se)
+}
+
+#' @export
+print.IVResults <- function(x, digits = getOption("digits"), ...) {
+    if (!is.null(x$call))
+        cat("Call:\n", deparse(x$call), "\n\n", sep = "", fill=TRUE)
+
+    ## r <- as.data.frame(x[c("beta", "se", "ser")])
+    ## names(r) <- c("Estimate", "Std. Error", "Robust SE")
+    ## print.data.frame(as.data.frame(r), digits=digits)
+    print.data.frame(x$estimate)
+    invisible(x)
 }

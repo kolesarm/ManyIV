@@ -43,25 +43,6 @@ MDivreg <- function(Y, Z, W, theta=NULL, desFeat=NULL) {
     Gamma <- function(be) matrix(c(1, -be, 0, 1), nrow=2)
     Sig <- function(Om, be) crossprod(Gamma(be), Om %*% Gamma(be))
 
-    ## Estimates of beta
-    mkap <- c(-d$nu/d$n, 0, ei[1], ak)              # m(kappa)
-    be.den <- function(m) T[2,2]-m*S[2,2] # denominator
-    be <- sapply(mkap, function(m) (T[1,2]-m*S[1,2])/be.den(m))
-    names(be) <- c('ols', 'tsls', 'liml', 'mbtsls')
-
-
-    ## 1. Stata standard errors
-    hat.eps <- function(be) Yt[, 1]- Yt[, 2]*be
-    hat.sig <- function(be) drop(crossprod(hat.eps(be))) / d$n
-    se <- data.frame(Stata=sqrt(sapply(be, hat.sig) / (d$n*be.den(mkap))))
-    small <- sqrt(d$n/(nl-1))
-    se$Stata[1] <- se$Stata[1]*small
-
-    ## 2. Stata robust standard errros
-    se$StataR <- sqrt(c(drop(crossprod(Yt[, 2]*hat.eps(be[1])))*small^2,
-                   sapply(2:4, function(j) drop(crossprod(Rhat[, 2]*hat.eps(be[j])))))) /
-                       (d$n*be.den(mkap))
-
     ## 4. Standard errors based on RE likelihood, or uncorrelated RE likelihood
     ## (for mbtsls, with estimate of Lambda_11 set to zero)
     H.RE <- function(be, Om, lam) {
