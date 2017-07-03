@@ -17,8 +17,8 @@ N2 <- rbind(c(1, 0, 0, 0), c(0, 1/2, 1/2, 0 ), c(0, 1/2, 1/2, 0),
 #'
 #' @param Y n-vector
 #' @param X n-vector
-#' @param Z [n x k] Matrix of instruments
-#' @param W [n x ell] Matrix of covariates
+#' @param Z [n x k] Matrix of instruments, class \code{Matrix}
+#' @param W [n x ell] Matrix of covariates,, class \code{Matrix}
 #' @param moments if \code{TRUE}, compute estimates of third and fourth moments
 #'     of the reduced-form errors based on least squares residuals
 #' @export
@@ -27,19 +27,11 @@ IVData <- function(Y, X, Z, W, moments=TRUE) {
         Matrix::solve(Matrix::crossprod(X), Matrix::crossprod(X, Y))
     d <- list(l=W@Dim[2], k=Z@Dim[2], n=Z@Dim[1], Z=Z, W=W,
               Y=cbind(Y, X))
-    Zt <- if (d$l==0)  {
-              Z
-          } else {
-              Z-W %*% ols(W, Z)
-          }
-    d$Yt <- if (d$l==0)  {
-                d$Y
-          } else {
-              d$Y-W %*% ols(W, d$Y)
-          }
+    Zt <- if (d$l==0) Z else (Z-W %*% ols(W, Z))
+    d$Yt <- if (d$l==0) d$Y else (d$Y-W %*% ols(W, d$Y))
 
     d$nu <- d$n-d$k-d$l             # degrees of freedom
-    X <- Matrix::cBind(Z, W)
+    X <- cbind(Z, W)
     hatPi <- ols(X, d$Y)
     d$S <- as.matrix(Matrix::crossprod(d$Y-X%*%hatPi) / d$nu)
     d$Yhatp <- Zt %*% hatPi[1:d$k, ]
@@ -47,25 +39,48 @@ IVData <- function(Y, X, Z, W, moments=TRUE) {
     d$ei <- sort(eigen(solve(d$S, d$T))$values) # [m_min, m_max]
 
     if(moments) {
-        d$M <- Matrix::Diagonal(d$n) -
-            X %*% Matrix::solve(Matrix::crossprod(X), Matrix::t(X))
+        diagP <- function(x)
+            Matrix::colSums(Matrix::t(x) *
+                            Matrix::solve(Matrix::crossprod(x), Matrix::t(x)))
+        diagPX <- diagP(X)
+        d$m2 <- sum((1-diagPX)^2)
+
+        XX <- Matrix::solve(Matrix::crossprod(X), Matrix::t(X))
+        Hj <- function(j, p) sum((X[j, ] %*% XX)^p)
+
+        ## Split computation into s parts
+        s <- max((d$n*(d$k+d$l)) %/% 1e5, 1)
+        ix <- cbind((d$n%/%s)*(0:(s-1))+1, (d$n%/%s)*(1:s))
+        if ((d$n %% s) > 0)
+            ix <- rbind(ix, c((d$n%/%s)*s, d$n))
+
+        m3 <- sum(sapply(1:s, function(j) Hj(ix[j, 1]:ix[j, 2], 3)))
+        d$m3 <- sum((1-diagPX)^3)+sum(diagPX^3)-m3
+
+        m4 <- sum(sapply(1:s, function(j) Hj(ix[j, 1]:ix[j, 2], 4)))
+        d$m4 <- sum((1-diagPX)^4)+m4-sum(diagPX^4)
+
         V <- d$Y-X %*% hatPi
-        vi <- function(i) kronecker(V[i, ]%o%V[i, ], V[i, ])
-        d$Psi3 <- matrix(rowSums(sapply(1:d$n, vi)), ncol=2)/sum(d$M^3)
+        d$Psi3 <- c(sum(V[, 1]^3), sum(V[, 1]^2*V[, 2]), sum(V[, 1]*V[, 2]^2),
+                    sum(V[, 2]^3))
+        d$Psi3 <- cbind(c(d$Psi3[1], d$Psi3[2], d$Psi3[2], d$Psi3[3]),
+                        c(d$Psi3[2], d$Psi3[3], d$Psi3[3], d$Psi3[4])) / d$m3
 
-        vi <- function(i) kronecker(V[i, ]%o%V[i, ], V[i, ]%o% V[i, ])
-        m2 <- sum(Matrix::diag(d$M)^2)
-        m4 <- sum(d$M^4)
-
-        d$Psi4 <- (m2-m4)*(2*N2*kronecker(d$S, d$S)+tcrossprod(as.vector(d$S)))
-        d$Psi4 <- (matrix(rowSums(sapply(1:d$n, vi)), ncol=4) - d$Psi4)/ m4
+        d$Psi4 <- c(sum(V[, 1]^4), sum(V[, 1]^3*V[, 2]), sum(V[, 1]^2*V[, 2]^2),
+                    sum(V[, 1]*V[, 2]^3), sum(V[, 2]^4))
+        d$Psi4 <- cbind(c(d$Psi4[1], d$Psi4[2], d$Psi4[2], d$Psi4[3]),
+                        c(d$Psi4[2], d$Psi4[3], d$Psi4[3], d$Psi4[4]),
+                        c(d$Psi4[2], d$Psi4[3], d$Psi4[3], d$Psi4[4]),
+                        c(d$Psi4[3], d$Psi4[4], d$Psi4[4], d$Psi4[5]))
+        d$Psi4 <- (d$Psi4 - (d$m2-d$m4) * (2*N2 %*% kronecker(d$S, d$S)+
+                                           tcrossprod(as.vector(d$S)))) / d$m4
 
         ## Diagonal of H
-        h <- Matrix::colSums(Matrix::t(X) *
-                             Matrix::solve(Matrix::crossprod(X), Matrix::t(X)))
-        h <- h-Matrix::diag(d$M)*d$k/d$nu
+        h <- diagP(Zt)-d$k/d$nu * (1-diagPX)
         d$delta <- sum(h^2)/d$k
         d$mu <- sum(drop(Zt %*% hatPi[1:d$k, 2]) * h) / sqrt(d$n*d$k)
+        ## For invalid IV
+        d$mu1 <- sum(drop(Zt %*% hatPi[1:d$k, 1]) * h) / sqrt(d$n*d$k)
     }
 
     structure(d, class="IVData")
@@ -103,8 +118,11 @@ IVData <- function(Y, X, Z, W, moments=TRUE) {
 #'   \item{"lil"}{Inference based on information matrix of limited
 #'               information likelihood}
 #'
+#'   \item{"md"}{TODO}
 #' }
-IVreg <- function (formula, data, subset, na.action, inference="standard") {
+#' @param s if n is large
+IVreg <- function (formula, data, subset, na.action, inference="standard",
+                   s=100) {
     formula <- Formula::as.Formula(formula)
     cl <- mf <- match.call(expand.dots = FALSE)
     m <- match(c("formula", "data", "subset", "na.action"), names(mf), 0L)
@@ -114,7 +132,6 @@ IVreg <- function (formula, data, subset, na.action, inference="standard") {
     mf <- eval(mf, parent.frame())
 
     Y <- model.response(mf, "numeric")
-    mt <- terms(formula, data = data)
     mtX <- terms(formula, data = data, rhs = 1)
     Xname <- attr(mtX, "term.labels")[1]
     W <- model.matrix(mtX, mf)
@@ -126,7 +143,7 @@ IVreg <- function (formula, data, subset, na.action, inference="standard") {
     ## consists of indicators
     Z <- Matrix::Matrix(Z[, !colnames(Z) %in% colnames(W)])
 
-    d <- IVData(Y, X, Z, W, moments=FALSE)
+    d <- IVData(Y, X, Z, W, moments=("md" %in% inference))
 
     est <- data.frame(row.names=c("ols", "tsls", "liml", "mbtsls", "emd"))
     ret <- structure(list(IVData=d, call=cl, formula=formula(formula),
@@ -159,6 +176,15 @@ IVreg <- function (formula, data, subset, na.action, inference="standard") {
         ret$estimate["liml", "il"] <- r$se
     }
 
+    if ("md" %in% inference) {
+        r <- IVregMD.fit(d, weight="LIML")
+        ret$estimate["liml", "beta"] <- r$beta
+        ret$estimate["liml", "md"] <- r$se
+        r <- IVregMD.fit(d, weight="Optimal")
+        ret$estimate["emd", "beta"] <- r$beta
+        ret$estimate["emd", "md"] <- r$se
+    }
+
     ret
 }
 
@@ -186,56 +212,59 @@ IVreg.fit <- function(d) {
 }
 
 
-MDDelta <- function(be, Om, Xi, d, Gaussian=FALSE) {
+MDDelta <- function(be, Om, Xi, d, Gaussian=FALSE, invalid=FALSE) {
     tau <- (d$k/d$n) * (d$n-d$l)/(d$n-d$k-d$l)
 
-    aa <- c(be, 1) %o% c(be, 1)
-    Delta1 <- 2*N2%*% (Xi*kronecker(aa, Om) + Xi*kronecker(Om, aa)+
-                          tau*kronecker(Om, Om))
+    Xim <- if (invalid) (d$T-(d$k/d$n)*d$S) else (Xi*c(be, 1) %o% c(be, 1))
+    D1 <- 2*N2 %*%  (kronecker(Xim, Om) + kronecker(Om, Xim) +
+                     tau*kronecker(Om, Om))
+
 
     if (Gaussian==TRUE) {
-        Delta2 <- Delta3 <- matrix(0, nrow=4, ncol=4)
+        D2 <- D3 <- matrix(0, nrow=4, ncol=4)
     } else {
-        Delta2 <- (d$k/d$n)*d$delta*(d$Psi4 - as.vector(Om) %o% as.vector(Om) -
-                                     2*N2*kronecker(Om, Om))
-        Delta3 <- 2*N2*sqrt(d$k/d$n)*d$mu* kronecker(t(d$Psi3), c(be, 1))
+        D2 <- (d$k/d$n)*d$delta*(d$Psi4 - as.vector(Om) %o% as.vector(Om) -
+                                     2*N2%*%kronecker(Om, Om))
+        D3 <- if (invalid) {
+                  ## TODO: Finish, then valid and invalid MBTSLS se's.
+              } else {
+                  2*N2%*%sqrt(d$k/d$n)*d$mu* kronecker(t(d$Psi3), c(be, 1))
+              }
     }
 
-    L2 %*% (Delta1+Delta2+Delta3+t(Delta3)) %*% t(L2)
+    L2 %*% (D1+D2+D3+t(D3)) %*% t(L2)
 }
 
 
 #' Minimum distance
-IVregMD.fit <- function(d, weight="LIML") {
+IVregMD.fit <- function(d, weight="Optimal") {
 
     ## LIML standard error
     r1 <- IVregRE.fit(d)
-    Xi.re <- r1$lam.re / aoa(r1$beta["liml"], r1$Om.re)
-    Del <- MDDelta(r1$beta["liml"], r1$Om.re, Xi.re, d)
-    DelN <- MDDelta(r1$beta["liml"], r1$Om.re, Xi.re, d, Gaussian=TRUE)
-    a.re <- c(r1$beta["liml"], 1)
+    Xi.re <- r1$lam / aoa(r1$beta, r1$Om)
+    Del <-  MDDelta(r1$beta, r1$Om, Xi.re, d)
+    a.re <- c(r1$beta, 1)
 
     G <- L2 %*% cbind(Xi.re*(kronecker(a.re, c(1, 0)) +
                              kronecker(c(1, 0), a.re)), kronecker(a.re, a.re))
-    Wm <- t(D2) %*% kronecker(solve(r1$Om.re), solve(r1$Om.re)) %*% D2
+    Wm <- t(D2) %*% kronecker(solve(r1$Om), solve(r1$Om)) %*% D2
     iGWG <- solve(crossprod(G, Wm%*% G))
 
-    ## Without and with assuming normal errors
-    se1 <- function(Del) (iGWG %*%
-                          crossprod(G, Wm%*%Del%*%Wm %*% G) %*% iGWG)[1, 1]
-
-    liml.se <- sqrt(c(se1(Del), se1(DelN))/d$n)
+    if (weight=="LIML") {
+        se <- (iGWG %*% crossprod(G, Wm%*%Del%*%Wm %*% G) %*% iGWG)[1, 1]
+        return(list(beta=r1$beta, se=sqrt(se/d$n), lam=r1$lam, Om=r1$Om))
+    }
 
     obj <- function(be, Xi) {
-        r1 <- drop(L2%*%as.vector(d$T-d$k/d$n*d$S-Xi*c(be, 1) %o% c(be, 1)))
-        sum(r1*solve(Del, r1))
+        r <- drop(L2%*%as.vector(d$T-d$k/d$n*d$S-Xi*c(be, 1) %o% c(be, 1)))
+        sum(r*solve(Del, r))
     }
-    start <- c(r1$beta["liml"], Xi.re)
-    r2 <- stats::optim(start, function(t) obj(t[1], t[2]))
-    se2 <- function(Del) solve(crossprod(G, solve(Del, G)))[1, 1]
-    umd.se <- sqrt(c(se2(Del), se2(DelN))/d$n)
+    start <- c(r1$beta, Xi.re)
+    r2 <- stats::optim(start, function(t) obj(t[1], t[2]), method="BFGS")
+    se2 <- solve(crossprod(G, solve(Del, G)))[1, 1]
 
-    list(beta=r2$par[1], liml.se=liml.se, umd.se=umd.se)
+    list(beta=r2$par[1], se=sqrt(se2/d$n), lam=r2$par[2]*aoa(r2$par[1], r1$Om),
+         Om=r1$Om)
 }
 
 #' @export
