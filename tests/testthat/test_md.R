@@ -7,7 +7,7 @@ test_that("Psi3 and Psi4 calculations", {
     X <- r2$IVData$Y[, 2]
     Z <- r2$IVData$Z
     W <- r2$IVData$W
-    d <- IVData(Y, X, Z, W, moments=TRUE)
+    d <- IVData(Y, X, Z, W, moments=TRUE, approx=FALSE)
 
 
     ols <- function(X, Y)

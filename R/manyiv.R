@@ -21,9 +21,11 @@ N2 <- rbind(c(1, 0, 0, 0), c(0, 1/2, 1/2, 0 ), c(0, 1/2, 1/2, 0),
 #' @param W [n x ell] Matrix of covariates, class \code{Matrix}
 #' @param moments if \code{TRUE}, compute estimates of third and fourth moments
 #'     of the reduced-form errors based on least squares residuals
+#' @param approx if \code{TRUE}, then estimates of third and fourth moments use
+#'     an appriximation to speed up the calculations.
 #' @import Matrix
 #' @export
-IVData <- function(Y, X, Z, W, moments=TRUE) {
+IVData <- function(Y, X, Z, W, moments=TRUE, approx=TRUE) {
     ols <- function(X, Y)
         Matrix::solve(Matrix::crossprod(X), Matrix::crossprod(X, Y))
     d <- list(l=W@Dim[2], k=Z@Dim[2], n=Z@Dim[1], Z=Z, W=W,
@@ -57,11 +59,15 @@ IVData <- function(Y, X, Z, W, moments=TRUE) {
         if ((d$n %% s) > 0)
             ix <- rbind(ix, c((d$n%/%s)*s, d$n))
 
-        m3 <- sum(sapply(1:s, function(j) Hj(ix[j, 1]:ix[j, 2], 3)))
-        d$m3 <- sum((1-diagPX)^3)+sum(diagPX^3)-m3
-
-        m4 <- sum(sapply(1:s, function(j) Hj(ix[j, 1]:ix[j, 2], 4)))
-        d$m4 <- sum((1-diagPX)^4)+m4-sum(diagPX^4)
+        if (approx) {
+            d$m3 <- d$n-3*(d$k+d$l)
+            d$m4 <- d$n-4*(d$k+d$l)
+        } else {
+            m3 <- sum(sapply(1:s, function(j) Hj(ix[j, 1]:ix[j, 2], 3)))
+            d$m3 <- sum((1-diagPX)^3)+sum(diagPX^3)-m3
+            m4 <- sum(sapply(1:s, function(j) Hj(ix[j, 1]:ix[j, 2], 4)))
+            d$m4 <- sum((1-diagPX)^4)+m4-sum(diagPX^4)
+        }
 
         V <- d$Y-X %*% hatPi
         d$Psi3 <- c(sum(V[, 1]^3), sum(V[, 1]^2*V[, 2]), sum(V[, 1]*V[, 2]^2),
@@ -121,8 +127,11 @@ IVData <- function(Y, X, Z, W, moments=TRUE) {
 #'   \item{"lil"}{Inference based on information matrix of limited
 #'               information likelihood}
 #'
-#'   \item{"md"}{Inference based on the minimum distance objective function}
-#' }
+#'   \item{"md"}{Inference based on the minimum distance objective function} }
+#' @param approx if \code{TRUE}, then estimates of third and fourth moments used
+#'     in inference based on the minimum distance objective function
+#'     (\code{inference="md"}) use an appriximation to speed up the
+#'     calculations.
 #' @examples
 #' ## Specification as in Table V, columns (1) and (2) in Angrist and Krueger
 #' IVreg(lwage~education+as.factor(yob)|as.factor(qob)*as.factor(yob),
@@ -132,7 +141,8 @@ IVData <- function(Y, X, Z, W, moments=TRUE) {
 #' IVreg(lwage~education+as.factor(yob)+black+smsa+married|as.factor(qob),
 #'            data=ak80, inference=c("standard", "re", "il", "lil"))
 #' @export
-IVreg <- function (formula, data, subset, na.action, inference="standard") {
+IVreg <- function (formula, data, subset, na.action, inference="standard",
+                   approx=TRUE) {
     formula <- Formula::as.Formula(formula)
     cl <- mf <- match.call(expand.dots = FALSE)
     m <- match(c("formula", "data", "subset", "na.action"), names(mf), 0L)
@@ -153,7 +163,7 @@ IVreg <- function (formula, data, subset, na.action, inference="standard") {
     ## consists of indicators
     Z <- Matrix::Matrix(Z[, !colnames(Z) %in% colnames(W)])
 
-    d <- IVData(Y, X, Z, W, moments=("md" %in% inference))
+    d <- IVData(Y, X, Z, W, moments=("md" %in% inference), approx=approx)
 
     est <- data.frame(row.names=c("ols", "tsls", "liml", "mbtsls", "emd"))
     ret <- structure(list(IVData=d, call=cl, formula=formula(formula),
@@ -331,7 +341,7 @@ IVregUMD.fit <- function(d, invalid=TRUE) {
 #' @export
 print.IVresults <- function(x, digits = getOption("digits"), ...) {
     if (!is.null(x$call))
-        cat("Call:\n", deparse(x$call), "\n\n", sep = "", fill=TRUE)
+        cat("Call:\n", deparse(x$call), sep = "", fill=TRUE)
 
     r <- x$estimate[!is.na(x$estimate$beta), ]
     colnames(r) <- c("Estimate", colnames(r[, -1]))
@@ -339,8 +349,12 @@ print.IVresults <- function(x, digits = getOption("digits"), ...) {
     if ("se" %in% colnames(r))
         colnames(r) <- c(c("Estimate", "Conventional", "Conv. (robust)"),
                          colnames(r[, -(1:3)]))
+
+    cat("\nFirst-stage F: ", x$IVData$F, "\n\n")
     cat("Estimates and standard errors:\n")
 
-    print.data.frame(r)
+    print.data.frame(r, digits = digits, ...)
+
+
     invisible(x)
 }
