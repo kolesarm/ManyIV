@@ -38,6 +38,8 @@ IVData <- function(Y, X, Z, W, moments=TRUE) {
     d$T <- as.matrix(Matrix::crossprod(d$Yhatp) / d$n)
     d$ei <- sort(eigen(solve(d$S, d$T))$values) # [m_min, m_max]
 
+    d$F <- d$T[2, 2]/(d$k/d$n*d$S[2, 2])              # first-stage F
+
     if(moments) {
         diagP <- function(x)
             Matrix::colSums(Matrix::t(x) *
@@ -183,15 +185,37 @@ IVreg <- function (formula, data, subset, na.action, inference="standard",
         r <- IVregMD.fit(d, weight="Optimal")
         ret$estimate["emd", "beta"] <- r$beta
         ret$estimate["emd", "md"] <- r$se
+        r <- IVregUMD.fit(d, invalid=FALSE)
+        ret$estimate["mbtsls", "beta"] <- r$beta
+        ret$estimate["mbtsls", "md"] <- r$se
+        ret$estimate["mbtsls", "umd"] <- IVregUMD.fit(d, invalid=TRUE)$se
     }
 
     ret
 }
 
+IVoverid.fit <- function(d) {
+    ## Sargan and Cragg-Donald
+    overid <- if (d$k==1) {
+                  c(NA, NA)
+              } else {
+                  c(d$n*d$ei[1]/(d$nu/d$n+d$ei[1]), d$n*d$ei[1])
+              }
+
+    r1 <- IVregRE.fit(d)
+    a <- c(r1$beta, 1)
+    kap <- drop(crossprod(kronecker(a, a), d$Psi4 %*% kronecker(a, a))) /
+        bob(r1$beta, r1$Om)^2 - 3
+    rr <- (d$n-d$l)/d$nu+d$delta*kap/2
+    p.value <- c(1 - pchisq(overid[1], d$k-1),
+                 1-pnorm(qnorm(pchisq(overid[2], d$k-1))/sqrt(rr)))
+    names(overid) <- names(p.value) <- c("Sargan", "Modified-CD")
+}
+
 
 IVreg.fit <- function(d) {
     ## 1. Estimates of beta
-    mkap <- c(-d$nu/d$n, 0, d$ei[1], d$k/d$n)              # m(kappa)
+    mkap <- c(-d$nu/d$n, 0, d$ei[1], d$k/d$n)   # m(kappa)
     be.den <- function(m) d$T[2, 2]-m*d$S[2, 2] # denominator
     be <- sapply(mkap, function(m) (d$T[1, 2]- m * d$S[1, 2])/be.den(m))
 
@@ -212,24 +236,20 @@ IVreg.fit <- function(d) {
 }
 
 
-MDDelta <- function(be, Om, Xi, d, Gaussian=FALSE, invalid=FALSE) {
+MDDelta <- function(be, Om, Xi22, d, Gaussian=FALSE, invalid=FALSE) {
     tau <- (d$k/d$n) * (d$n-d$l)/(d$n-d$k-d$l)
 
-    Xim <- if (invalid) (d$T-(d$k/d$n)*d$S) else (Xi*c(be, 1) %o% c(be, 1))
+    Xim <- if (invalid) (d$T-(d$k/d$n)*d$S) else (Xi22*c(be, 1) %o% c(be, 1))
     D1 <- 2*N2 %*%  (kronecker(Xim, Om) + kronecker(Om, Xim) +
                      tau*kronecker(Om, Om))
 
-
-    if (Gaussian==TRUE) {
+    if (Gaussian) {
         D2 <- D3 <- matrix(0, nrow=4, ncol=4)
     } else {
         D2 <- (d$k/d$n)*d$delta*(d$Psi4 - as.vector(Om) %o% as.vector(Om) -
                                      2*N2%*%kronecker(Om, Om))
-        D3 <- if (invalid) {
-                  ## TODO: Finish, then valid and invalid MBTSLS se's.
-              } else {
-                  2*N2%*%sqrt(d$k/d$n)*d$mu* kronecker(t(d$Psi3), c(be, 1))
-              }
+        mu1 <- if (invalid) d$mu1 else be*d$mu
+        D3 <- 2*sqrt(d$k/d$n) * N2 %*% kronecker(t(d$Psi3), c(mu1, d$mu))
     }
 
     L2 %*% (D1+D2+D3+t(D3)) %*% t(L2)
@@ -247,8 +267,8 @@ IVregMD.fit <- function(d, weight="Optimal") {
 
     G <- L2 %*% cbind(Xi.re*(kronecker(a.re, c(1, 0)) +
                              kronecker(c(1, 0), a.re)), kronecker(a.re, a.re))
-    Wm <- t(D2) %*% kronecker(solve(r1$Om), solve(r1$Om)) %*% D2
-    iGWG <- solve(crossprod(G, Wm%*% G))
+    Wm <- crossprod(D2, kronecker(solve(r1$Om), solve(r1$Om)) %*% D2)
+    iGWG <- solve(crossprod(G, Wm %*% G))
 
     if (weight=="LIML") {
         se <- (iGWG %*% crossprod(G, Wm%*%Del%*%Wm %*% G) %*% iGWG)[1, 1]
@@ -266,6 +286,21 @@ IVregMD.fit <- function(d, weight="Optimal") {
     list(beta=r2$par[1], se=sqrt(se2/d$n), lam=r2$par[2]*aoa(r2$par[1], r1$Om),
          Om=r1$Om)
 }
+
+#' Unrestriced minimum distance
+IVregUMD.fit <- function(d, invalid=TRUE) {
+    Xi <- d$T - (d$k/d$n)*d$S
+    be <- Xi[1, 2] / Xi[2, 2]
+    Om <- d$S
+
+    G <- c(0, 1, -be) / Xi[2, 2]
+    se <- drop(crossprod(G, MDDelta(be, Om, Xi[2, 2], d,
+                                    invalid=invalid) %*% G))
+
+    list(beta=be, se=sqrt(se/d$n), lam=Xi[2, 2]*aoa(be, Om), Om=Om)
+}
+
+
 
 #' @export
 print.IVResults <- function(x, digits = getOption("digits"), ...) {
