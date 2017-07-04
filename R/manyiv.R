@@ -8,7 +8,7 @@ N2 <- rbind(c(1, 0, 0, 0), c(0, 1/2, 1/2, 0 ), c(0, 1/2, 1/2, 0),
             c(0, 0, 0, 1))
 
 
-## 1. Inference base on invariant and RE likelihood
+## 1. Inference based on invariant and RE likelihood
 
 #' Class constructor for IVData
 #'
@@ -18,9 +18,10 @@ N2 <- rbind(c(1, 0, 0, 0), c(0, 1/2, 1/2, 0 ), c(0, 1/2, 1/2, 0),
 #' @param Y n-vector
 #' @param X n-vector
 #' @param Z [n x k] Matrix of instruments, class \code{Matrix}
-#' @param W [n x ell] Matrix of covariates,, class \code{Matrix}
+#' @param W [n x ell] Matrix of covariates, class \code{Matrix}
 #' @param moments if \code{TRUE}, compute estimates of third and fourth moments
 #'     of the reduced-form errors based on least squares residuals
+#' @import Matrix
 #' @export
 IVData <- function(Y, X, Z, W, moments=TRUE) {
     ols <- function(X, Y)
@@ -120,11 +121,18 @@ IVData <- function(Y, X, Z, W, moments=TRUE) {
 #'   \item{"lil"}{Inference based on information matrix of limited
 #'               information likelihood}
 #'
-#'   \item{"md"}{TODO}
+#'   \item{"md"}{Inference based on the minimum distance objective function}
 #' }
-#' @param s if n is large
-IVreg <- function (formula, data, subset, na.action, inference="standard",
-                   s=100) {
+#' @examples
+#' ## Specification as in Table V, columns (1) and (2) in Angrist and Krueger
+#' IVreg(lwage~education+as.factor(yob)|as.factor(qob)*as.factor(yob),
+#'            data=ak80, inference=c("standard", "re", "il", "lil"))
+#' ## Only quarter of birth as instrument, add married, black and smsa as exogenous
+#' #regressors
+#' IVreg(lwage~education+as.factor(yob)+black+smsa+married|as.factor(qob),
+#'            data=ak80, inference=c("standard", "re", "il", "lil"))
+#' @export
+IVreg <- function (formula, data, subset, na.action, inference="standard") {
     formula <- Formula::as.Formula(formula)
     cl <- mf <- match.call(expand.dots = FALSE)
     m <- match(c("formula", "data", "subset", "na.action"), names(mf), 0L)
@@ -133,14 +141,14 @@ IVreg <- function (formula, data, subset, na.action, inference="standard",
     mf[[1L]] <- quote(stats::model.frame)
     mf <- eval(mf, parent.frame())
 
-    Y <- model.response(mf, "numeric")
-    mtX <- terms(formula, data = data, rhs = 1)
+    Y <- stats::model.response(mf, "numeric")
+    mtX <- stats::terms(formula, data = data, rhs = 1)
     Xname <- attr(mtX, "term.labels")[1]
-    W <- model.matrix(mtX, mf)
+    W <- stats::model.matrix(mtX, mf)
     X <- W[, Xname]
     W <- Matrix::Matrix(W[, !(colnames(W) %in% Xname)])
-    mtZ <- delete.response(terms(formula, data = data, rhs = 2))
-    Z <- model.matrix(mtZ, mf)
+    mtZ <- stats::delete.response(stats::terms(formula, data = data, rhs = 2))
+    Z <- stats::model.matrix(mtZ, mf)
     ## Remove intercept now, using attr(mtZ, "intercept") <- 0 won't help if Z
     ## consists of indicators
     Z <- Matrix::Matrix(Z[, !colnames(Z) %in% colnames(W)])
@@ -151,7 +159,7 @@ IVreg <- function (formula, data, subset, na.action, inference="standard",
     ret <- structure(list(IVData=d, call=cl, formula=formula(formula),
                                             na.action=attr(mf, "na.action"),
                                             estimate=est),
-                     class="IVResults")
+                     class="IVresults")
 
     if ("standard" %in% inference) {
         r <- IVreg.fit(d)
@@ -194,7 +202,22 @@ IVreg <- function (formula, data, subset, na.action, inference="standard",
     ret
 }
 
+#' Test of overidentifying restrictions
+#'
+#' Report test statistic and p-value for testing of overidentifying
+#' restrictions. The Sargan test is valid under few instruments. The Modified
+#' Cragg-Donald test (Modified-CD) corresponds to a test due to Cragg and Donald
+#' (1993), with a critical value modified to make it robust to many instruments
+#' and many exogenous regressors.
+#' @param r object of class \code{RDResults}
+#' @export
+IVoverid <- function(r) IVoverid.fit(r$IVData)
+
+
 IVoverid.fit <- function(d) {
+    if (!("Psi4" %in% names(d)))
+        d <- IVData(d$Y[, 1], d$Y[, 2], d$Z, d$W, moments=TRUE)
+
     ## Sargan and Cragg-Donald
     overid <- if (d$k==1) {
                   c(NA, NA)
@@ -207,9 +230,11 @@ IVoverid.fit <- function(d) {
     kap <- drop(crossprod(kronecker(a, a), d$Psi4 %*% kronecker(a, a))) /
         bob(r1$beta, r1$Om)^2 - 3
     rr <- (d$n-d$l)/d$nu+d$delta*kap/2
-    p.value <- c(1 - pchisq(overid[1], d$k-1),
-                 1-pnorm(qnorm(pchisq(overid[2], d$k-1))/sqrt(rr)))
+    p.value <- c(1 - stats::pchisq(overid[1], d$k-1),
+                 1-stats::pnorm(stats::qnorm(stats::pchisq(overid[2],
+                                                           d$k-1))/sqrt(rr)))
     names(overid) <- names(p.value) <- c("Sargan", "Modified-CD")
+    data.frame(statistic=overid, p.value=p.value)
 }
 
 
@@ -257,6 +282,7 @@ MDDelta <- function(be, Om, Xi22, d, Gaussian=FALSE, invalid=FALSE) {
 
 
 #' Minimum distance
+#' @keywords internal
 IVregMD.fit <- function(d, weight="Optimal") {
 
     ## LIML standard error
@@ -288,6 +314,7 @@ IVregMD.fit <- function(d, weight="Optimal") {
 }
 
 #' Unrestriced minimum distance
+#' @keywords internal
 IVregUMD.fit <- function(d, invalid=TRUE) {
     Xi <- d$T - (d$k/d$n)*d$S
     be <- Xi[1, 2] / Xi[2, 2]
@@ -301,15 +328,19 @@ IVregUMD.fit <- function(d, invalid=TRUE) {
 }
 
 
-
 #' @export
-print.IVResults <- function(x, digits = getOption("digits"), ...) {
+print.IVresults <- function(x, digits = getOption("digits"), ...) {
     if (!is.null(x$call))
         cat("Call:\n", deparse(x$call), "\n\n", sep = "", fill=TRUE)
 
-    ## r <- as.data.frame(x[c("beta", "se", "ser")])
-    ## names(r) <- c("Estimate", "Std. Error", "Robust SE")
-    ## print.data.frame(as.data.frame(r), digits=digits)
-    print.data.frame(x$estimate)
+    r <- x$estimate[!is.na(x$estimate$beta), ]
+    colnames(r) <- c("Estimate", colnames(r[, -1]))
+
+    if ("se" %in% colnames(r))
+        colnames(r) <- c(c("Estimate", "Conventional", "Conv. (robust)"),
+                         colnames(r[, -(1:3)]))
+    cat("Estimates and standard errors:\n")
+
+    print.data.frame(r)
     invisible(x)
 }

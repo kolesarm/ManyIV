@@ -4,14 +4,19 @@
 \alias{IVData}
 \title{Class constructor for IVData}
 \usage{
-IVData(Y, Z, W)
+IVData(Y, X, Z, W, moments = TRUE)
 }
 \arguments{
-\item{Y}{[n x 2] class \code{Matrix}}
+\item{Y}{n-vector}
 
-\item{Z}{[n x k] Matrix of instruments}
+\item{X}{n-vector}
 
-\item{W}{[n x ell] Matrix of covariates}
+\item{Z}{[n x k] Matrix of instruments, class \code{Matrix}}
+
+\item{W}{[n x ell] Matrix of covariates, class \code{Matrix}}
+
+\item{moments}{if \code{TRUE}, compute estimates of third and fourth moments
+of the reduced-form errors based on least squares residuals}
 }
 \description{
 Convert data to standardized format for use with low-level functions. Uses

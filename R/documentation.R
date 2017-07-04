@@ -1,8 +1,7 @@
 #' Angrist-Krueger (1991) census data
 #'
 #'
-#' Sample of males born in the US from 5% sample of the 1980 Census for men
-#' born 1930-3x9
+#' Sample of males born in the US in 1930-39 from 5% sample of the 1980 Census
 #' @format A data frame with 329,509 observations on 10 variables:
 #'
 #' \describe{
@@ -28,5 +27,6 @@
 #' \item{division}{Factor variable indicating division}
 #'
 #' }
-#' @source Josh Angrist's website
+#' @source Josh Angrist's website,
+#'     \url{http://economics.mit.edu/faculty/angrist/data1/data/angkru1991}
 "ak80"

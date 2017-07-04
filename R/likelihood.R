@@ -1,5 +1,6 @@
 #' Limited information likelihood
 #' @param d object of class \code{RDData}
+#' @keywords internal
 IVregLI.fit <- function(d) {
     be <- (d$T[1, 2]- d$ei[1] * d$S[1, 2]) / (d$T[2, 2]-d$ei[1]*d$S[2, 2])
     Om <- (d$nu*d$S + d$n*(d$T-d$ei[2]*(c(be, 1) %o% c(be, 1)) /
@@ -12,6 +13,7 @@ IVregLI.fit <- function(d) {
 
 #' Random-effects likelihood
 #' @param d object of class \code{RDData}
+#' @keywords internal
 IVregRE.fit <- function(d) {
     ## Parameter estimates
     be <- (d$T[1, 2]- d$ei[1] * d$S[1, 2]) / (d$T[2, 2]-d$ei[1]*d$S[2, 2])
@@ -32,6 +34,7 @@ IVregRE.fit <- function(d) {
 
 #' Invariant likelihood
 #' @param d object of class \code{RDData}
+#' @keywords internal
 IVregIL.fit <- function(d) {
 
     be <- (d$T[1, 2]- d$ei[1] * d$S[1, 2]) / (d$T[2, 2]-d$ei[1]*d$S[2, 2])
@@ -65,8 +68,8 @@ IVregIL.fit <- function(d) {
            (c(be, 1) %o% c(be, 1)) / (aoa(be, d$S))) / (d$n-d$l)
 
     ## Hessian
-    ff <- function(t) logl(t[1], t[2], cbind(c(t[3], t[4]), c(t[4], t[5])))
-    se <- sqrt(solve(numDeriv::hessian(ff, c(be, lam, Om[1, 1],
+    fh <- function(t) logl(t[1], t[2], cbind(c(t[3], t[4]), c(t[4], t[5])))
+    se <- sqrt(solve(numDeriv::hessian(fh, c(be, lam, Om[1, 1],
                                              Om[1, 2], Om[2, 2])))[1, 1])
 
     list(beta=be, se=se, lam=lam, Om=Om, lik=-logl(be, lam, Om))

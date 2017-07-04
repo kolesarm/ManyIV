@@ -1,9 +1,13 @@
 Package: ManyIV
-Title: What the Package Does (one line, title case)
+Title: Inference in instrumental variables models with many instruments
 Version: 0.0.0.9000
 Authors@R: 'Michal Kolesar <kolesarmi@googlemail.com> [aut, cre]'
-Description: What the package does (one paragraph).
+Description: Calculates estimator and standard errors in a linear instrumental
+    variables model with possibly many instruments and many exogenous regressors
+    under homoscedasticity. Also computes many-instruments-robust tests of
+    overidentifying restrictions.
 Depends:
+    R (>= 3.3.0),
     Matrix
 License: GPL-3
 Encoding: UTF-8
@@ -13,4 +17,8 @@ Imports:
     Formula,
     numDeriv
 RoxygenNote: 6.0.1
-Suggests: testthat
+Suggests:
+    testthat,
+    knitr,
+    rmarkdown
+VignetteBuilder: knitr

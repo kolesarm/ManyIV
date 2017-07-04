@@ -1,0 +1,306 @@
+---
+title: "Inference with many instruments"
+author: "Michal Kolesár"
+date: "`r Sys.Date()`"
+bibliography: many-iv-library.bib
+output:
+  pdf_document:
+    toc: true
+    toc_depth: 2
+vignette: >
+  %\VignetteIndexEntry{Inference with many instruments}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include=FALSE, cache=FALSE}
+library("knitr")
+knitr::opts_knit$set(self.contained = FALSE)
+knitr::opts_chunk$set(tidy = TRUE, collapse=TRUE, comment = "#>",
+                      tidy.opts=list(blank=FALSE, width.cutoff=55))
+```
+
+# Summary
+
+The package `RDHonest` implements estimators and confidence intervals in a
+linear instrumental variables model considered in @kolesar17md and @kcfgi14. In
+this vignette, we demonstrate the implementation of these estimators and
+confidence intervals using a subset of the dataset used in @ak91, which is
+included in the package as a data frame `ak80`. This data frame corresponds to a
+sample of males born in the US in 1930--39 from 5% sample of the 1980 Census.
+See `help("ManyIV::ak80")` for details.
+
+# Estimation and Inference
+
+The package implements the following estimators via the command `IVreg`
+
+1. Two-stage least-squares (TSLS) estimator
+2. Limited information maximum likelihood (LIML) estimator  due to @ar49
+3. A modification of the bias-corrected two-stage least squares (MBTSLS)
+   estimator (@kcfgi14) that slightly modifies the original @nagar59 estimator
+   so that it's consistent under many exogenous regressors as well as many
+   instruments.
+4. Efficient minimum distance (EMD) estimator [@kolesar17md] that is more
+   efficient than LIML under many instrument asymptotics unless the reduced-form
+   errors are Gaussian.
+
+`IVreg` computes the following types of standard errors are computed:
+
+1. Conventional homoscedastic standard errors, as computed by Stata's
+   `ivregress` and `ivreg2`. These standard errors are not robust to many
+   instruments (option `inference=standard`)
+2. Conventional heteroscedastic standard errors, as computed by Stata's
+   `ivregress` and `ivreg2`. These standard errors are not robust to many
+   instruments. (option `inference=standard`)
+3. Standard errors based on the information matrix of the limited information
+   likelihood of @ar49 (for LIML only). These are not robust to many instruments
+   (option `inference=lil`)
+3. Standard errors based on the Hessian of the random-effects likelihood
+   of @ci04. These standard errors are for LIML only (since the random-effects ML
+   estimator coincides to LIML), and are robust to many instruments provided the
+   reduced-form errors are Gaussian (option `inference=re`).
+4. Standard errors based on the Hessian of the invariant
+   likelihood [see @kolesar17md]. These standard errors are for LIML only (since
+   the invariant ML estimator coincides to LIML), and are robust to many
+   instruments provided the reduced-form errors are Gaussian. This involves some
+   numerical optimization. (option `inference=il`)
+5. Many-instrument robust standard errors based on the minimum distance
+   objective function [see @kolesar17md] (option `inference=md`). Since the TSLS
+   estimator is not consistent under many-instrument asymptotics, its standard
+   errors are omitted. Unlike the `re` and `il` standard errors, the standard
+   errors for MBTSLS, LIML and EMD do not require the reduced-form errors to be
+   Gaussian. In addition, the command computes standard errors for MBTSLS based
+   on the unrestricted minimum distance objective function (`umd`), which allows
+   for treatment effect heterogeneity (provided the reduced-form errors remain
+   homoscedastic), and for failures of the exclusion restriction as considered
+   in @kcfgi14.
+
+Several of these options may be specified at once:
+
+```{r}
+library("ManyIV")
+## Specification as in Table V, columns (1) and (2) in Angrist and Krueger
+IVreg(lwage~education+as.factor(yob)|as.factor(qob)*as.factor(yob),
+            data=ak80, inference=c("standard", "re", "il", "lil"))
+```
+
+With large data, the `md` standard errors may take a while to run for large data
+sets, as they require estimation of third and fourth moments of the reduced-form
+errors.
+
+[[TODO EMD]]
+
+## Specification testing
+
+The command
+
+# Implementation details
+
+\newcommand{\by}{\mathbf{Y}} %
+\newcommand{\bx}{\mathbf{X}} %
+\newcommand{\bg}{\mathbf{G}} %
+\newcommand{\bz}{{Z}} %
+\newcommand{\bp}{\mathbf{P}} %
+\newcommand{\br}{\mathbf{R}} %
+\newcommand{\bw}{{W}} %
+\newcommand{\eye}{{I}} %
+\newcommand{\Ni}{K} %
+\newcommand{\Ne}{L} %
+\newcommand{\Hm}[1]{{H}_{#1}} %hat matrix
+\newcommand{\Dm}[1]{\mathbf{D}_{#1}} %diagonal matrix
+\newcommand{\tsls}{\text{\textsc{tsls}}}%
+\newcommand{\ols}{\text{\textsc{ols}}}%
+\newcommand{\umd}{\text{\textsc{umd}}}%
+\newcommand{\re}{\text{\textsc{re}}}%
+\newcommand{\mbtsls}{\text{\textsc{mbtsls}}}%
+\newcommand{\liml}{\text{\textsc{liml}}}%
+\newcommand{\h}[2]{\hat{#1}_{\text{\textsc{#2}}}} %
+
+Let $$y_{i}=x_{i}\beta+W_{i}'\delta+\epsilon_{i},$$ where $y_{i}\in\mathbb{R}$
+is the outcome variable, $x_{i}\in\mathbb{R}$ is a single endogenous regressor,
+$W_{i}\in\mathbb{R}^{\ell}$ is a vector of exogenous regressors (covariates),
+and $\epsilon_{i}$ is a structural error. The parameter of interest is $\beta$.
+In addition, $Z_{i}\in\mathbb{R}^{k}$ is a vector of instruments.
+
+We observe an i.i.d.~sample $\{y_{i},x_{i},W_{i},Z_{i}\}_{i=1}^{n}$. The
+arguments of `ivreg` are the matrices $Y$, $Z$, and $W$, with
+rows $(y_{i},x_{i})$, $Z_{i}'$ and $W_{i}'$. The matrix $Z$ doesn't necessarily
+have orthonormal columns.
+
+For any full-rank $n\times m$ matrix ${A}$, let $\Hm{{A}}={A}({A}'{A})^{-1}{A}'$
+denote the associated $n\times n$ projection matrix (also known as the hat
+matrix). Let $\eye_{m}$ denote the $m\times m$ identity matrix. Let
+${A}_{\perp}=(\eye_{n}-\Hm{W}){A}$ denote the residual from the sample projection of
+${A}$ onto $\bw$.
+
+Define matrices $S$ and $T$ as in MD paper:
+\begin{align*}
+  T&=Y_{\perp}'\Hm{\bz_{\perp}}Y_{\perp}/n,&
+  S&=Y'(\eye_{n}-\Hm{\bz,\bw})Y/(n-\Ni-\Ne).
+\end{align*}
+Also define $m_{\min}$ and $m_{\max}$ to be the minimum and maximum eigenvalues of the matrix $S^{-1}T$. A $k$-class estimator estimator with parameter $\kappa$ is then given by
+\begin{equation*}
+  \hat{\beta}(\kappa)=\frac{T_{1,2}-m(\kappa) S_{2,2}}{T_{2,2}-m(\kappa)S_{22}},
+\end{equation*}
+where $m(\kappa)=(\kappa-1)(1-\Ni/n-\Ne/n)$, so that
+\begin{align*}
+  m_{\ols}&=-(1-\Ni/n-\Ne/n)&
+  m_{\tsls}&=0,& m_{\mbtsls}&=k/n,& m_{\liml}&=m_{\min}.
+\end{align*}
+
+## Stata standard errors
+Stata 13's =ivregress= and =ivreg2= use standard errors for
+$k$-class estimators given by
+\begin{equation*}
+  \widehat{var}_{\text{Stata}}(\hat{\beta}(\kappa))=
+  \frac{\hat{\sigma}(\kappa)^{2}}{(1-\kappa)x_{\perp}'x_{\perp}+\kappa x'\Hm{Z_{\perp}}x}
+  =  \frac{1}{n}\frac{\hat{\sigma}(\kappa)^{2}}{
+    T_{2,2}-m(\kappa) S_{2,2}},
+\end{equation*}
+where
+$\hat{\sigma}(\kappa)^{2}=\hat{\epsilon}(\kappa)'\hat{\epsilon}(\kappa)/n$, with
+$\hat{\epsilon}(\kappa)=y_{\perp}-x_{\perp}\hat{\beta}(\kappa)=y-x\hat{\beta}(\kappa)-W'\hat{\delta}(\kappa)$,
+and $\hat{\delta}(\kappa)=(\bw'\bw)^{-1}\bw'(y-x\hat{\beta}(\kappa))$. This
+includes \liml, for which $\kappa$ is random (Stata disregards that). For \ols,
+we use the Stata 13 variance estimator
+$\hat{\sigma}=\hat{\epsilon}_{\ols}'\hat{\epsilon}_{\ols}/(n-\Ne-1)$.
+
+To define the robust standard error estimators, let
+$\hat{R}_{i}=Z_{\perp,i}(Z_{\perp}'Z_{\perp})^{-1}Z_{\perp}x$. Then, for a
+$k$-class estimator (including \liml),
+\begin{equation*}
+  \widehat{var}_{\text{StataR}}(\hat{\beta}(\kappa))
+  =\frac{\sum_{i=1}^{n}\hat{\epsilon}_{i}(\kappa)\hat{R}_{i}^{2}}{n^{2}(T_{2,2}-m(\kappa)S_{2,2})^{2}}.
+\end{equation*}
+Note that $\widehat{var}_{\text{StataR}}(\hat{\beta}(\kappa))$ and
+$\widehat{var}_{\text{Stata}}(\hat{\beta}(\kappa))$ don't necessarily converge
+to the same quantity even under homoskedasticity. For \ols, we use
+$(n/(n-\Ne-1))^{1/2}x_{\perp}$ in place of $\hat{R}_{i}$.
+
+One could alternatively use $T_{2,2}$ in the denominator, or estimate
+$var(\epsilon_{i})$ using $\hat{\sigma}(\beta)=(1,-\beta)S(1,-\beta)'$. Such
+variance estimators were used in invalid IV paper. The alternative denominator
+makes a huge difference. For the AK example in invalid IV paper, we have
+$T_{2,2}-(k/n)S_{2,2}=0.0078$, but $T_{2,2}=0.03905$. How we estimate
+$\sigma^{2}$ matters less, $\hat{\sigma}^{2}(\kappa)=0.4021$, and
+$(1,-\hat{\beta})S(1,-\hat{\beta})=0.4034$. In this dataset, $S$ is two orders
+of magnitude bigger than $T$, and with $k/n=0.003$, $T$ and $k/n S$ are same
+order of magnitude, so whether we subtract it or not makes a huge difference.
+
+## Likelihood-based standard errors
+For \liml, we also compute standard errors based on the information matrix of
+the limited information likelihood (see Equation (SA-5) in MD paper),
+\begin{equation*}
+  \widehat{var}_{\liml}(\hat{\beta}_{\liml})=\frac{\hat{a}_{\liml}'
+    \hat{\Omega}_{\liml}^{-1}\hat{a}_{\liml}\cdot \hat{b}_{\liml}'
+    \hat{\Omega}_{\liml}\hat{b}_{\liml} }{\hat{\lambda}_{\liml}},
+\end{equation*}
+where we use the \liml\ estimators
+\begin{align*}
+  \h{\Omega}{liml}&= \frac{n-\Ne-\Ni}{n-\Ne}S+\frac{n}{n-\Ne}\left(T-
+    \frac{m_{\max}\h{a}{liml}\h{a}{liml}'}{\h{a}{liml}'S^{-1}\h{a}{liml}}\right),\\
+  \h{\lambda}{liml}&=\frac{n-\Ne}{n-k-\Ne}m_{\max}.
+\end{align*}
+We also compute standard errors based on the Hessian of the \re\ likelihood,
+    \begin{equation*}
+      \widehat{var}_{\re}(\h{\beta}{liml})=-n \h{\mathcal{H}}{re}^{11}=
+      -\frac{\hat{b}'\h{\Omega}{re}\hat{b}
+        (\h{\lambda}{re}+k/n)}{\h{\lambda}{re}}\left(
+        \hat{Q}_{\mathcal{S}}\h{\Omega}{re,22}-T_{22}+\frac{\hat c}{1-\hat c}\frac{\hat{Q}_{\mathcal{S}}}{\hat{a}'
+          \h{\Omega}{re}^{-1}\hat{a}} \right)^{-1},
+    \end{equation*}
+where
+    \begin{align}
+      \h{\lambda}{re}&=m_{\max}-\Ni /n,\\
+      \h{\Omega}{re}&=\frac{n-\Ni-\Ne}{n-\Ne}S+\frac{n}{n-\Ne}\left(T-
+        \frac{\h{\lambda}{re}}{\hat{a}'S^{-1}\hat{a} } \hat{a}\hat{a}'\right),&
+      \hat{a}&=
+      \begin{pmatrix}
+        \hat{\beta}_{\liml}\\1
+      \end{pmatrix},
+      \\
+      \hat{Q}_{\mathcal{S}} &=\frac{\hat{b}'S \hat{b}}{\hat{b}'\h{\Omega}{re} \hat{b}},& \hat{b}
+      &=
+  \begin{pmatrix}
+    1\\-\hat{\beta}_{\liml}
+  \end{pmatrix},\\
+\hat c&=\frac{\h{\lambda}{re} \hat{Q}_{\mathcal{S}}}{(K/n+\h{\lambda}{re})(1-\Ne/n)}.
+    \end{align}
+    The estimator for the standard error of \mbtsls\ is based on the
+    Hessian of the uncorrelated random effects likelihood with the estimator of
+    the variance of the direct effects set to zero,
+    \begin{equation*}
+      \h{\mathcal{H}}{ure}=
+      \frac{1}{\hat{\Lambda}_{22}^{2}}\left(\hat{\Lambda}_{22}\hat{\Sigma}_{11}+
+        \frac{(1-\Ne/n )k/n}{(1-\Ni/n-\Ne/n)}
+        (\hat{\Sigma}_{11}\hat{\Sigma}_{22}+\hat{\Sigma}_{12}^{2})    \right),
+    \end{equation*}
+where
+\begin{align*}
+  \hat{\Lambda}_{22}&= \begin{cases} S_{22}-\frac{K }{n}\h{\Omega}{22,ure} &
+    \text{if $m_{\min}\geq K/n$,} \\
+    \frac{\h{\lambda}{re}}{\h{a}{re}'\h{\Omega}{re}^{-1}\h{a}{re}} &
+    \text{otherwise.}
+      \end{cases},\\
+      \h{\Omega}{ure}&=\begin{cases}
+        S & \text{if $m_{\min}\geq K/n$,} \\
+        \h{\Omega}{re} & \text{otherwise.}
+      \end{cases},\\
+      \h{\Sigma}{ure} &= \h{\Gamma}{ure}'\h{\Omega}{ure}\h{\Gamma}{ure}, &
+      \h{\Gamma}{ure} &=\begin{pmatrix} 1& 0\\
+        -\hat{\beta}_{\mathtt{mbtsls}} &1
+  \end{pmatrix}.
+\end{align*}
+
+## Many instruments plug-in standard errors
+Under Normality, the standard errors for \liml\ and \mbtsls\ under many
+instruments are given by
+\begin{equation*}
+avar=  \frac{1}{\Lambda^{2}}\left(\Lambda\Sigma_{11}+\frac{(1-\Ne/n)k/n}{
+      1-\Ni/n-\Ne/n}(\det(\Sigma)+
+    2d\Sigma_{12})\right),
+\end{equation*}
+where $d=0$ for \liml, and $d=1$ for \mbtsls. We estimate them using the plug-in
+estimates based on \re\ estimates or \umd\ estimates of $\Lambda$, $\beta$, and
+$\Omega$.
+
+[[TODO: Non-normal errors for liml and mbtsls based on MD objective]]
+
+## Many invalid instruments
+The estimator for the standard error of \texttt{mbtsls} is based on the Hessian
+of the uncorrelated random effects likelihood,
+    \begin{equation*}
+      \h{\mathcal{H}}{ure}=
+      \frac{1}{\hat{\Lambda}_{22}^{2}}\left(\hat{\Lambda}_{22}\hat{\Sigma}_{11}+
+        \frac{(1-\ell/n )k/n}{(1-k/n-\ell/n)}
+        (\hat{\Sigma}_{11}\hat{\Sigma}_{22}+\hat{\Sigma}_{12}^{2})
+        +\hat{\Lambda}_{11}\hat{\Sigma}_{22}+
+        \hat{\Lambda}_{11}\Lambda_{22}\cdot n/K
+      \right),
+    \end{equation*}
+    where $\hat{\Lambda}_{22}$ and $\hat{\Sigma}_{22}$ are computed as before,
+    and $\hat{\Lambda}_{11}=\max\left\{\hat{b}_{\mathtt{mbtsls}}'(S-\frac{K
+        }{n}S_{\perp}) \hat{b}_{\mathtt{mbtsls}} ,0\right\}.$
+
+## Other outputs
+In addition, we compute the first-stage $F$-statistic,
+\begin{equation*}
+F= \frac{n}{k}\frac{T_{22}}{S_{22}}.
+\end{equation*}
+We also compute the Sargan test statistic and p-value,
+$nm_{\min}/(1-p/n-\ell/n+m_{\min}))$, using $\chi^{2}_{k-1}$. The Sargan test
+statistic is based on \liml, unlike in Stata 13's =estat overid=, where
+it depends on what estimator was used to compute $\beta$.
+
+We also compute the test of overidentifying restrictions derived in MD paper.
+The $p$-value under Normality is given by
+\begin{equation*}
+  1-\Phi(\sqrt{(n-k-\ell)/(n-\ell)}\Phi^{-1}(F_{k-1}(nm_{\min}))),
+\end{equation*}
+where $\Phi$ is the cdf of a standard Normal distribution, and $F_{k-1}$ is the
+cdf of a $\chi^{2}$ distribution with $k-1$ degrees of freedom.
+
+
+
+
+# References
