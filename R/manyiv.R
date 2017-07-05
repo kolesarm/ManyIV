@@ -111,27 +111,11 @@ IVData <- function(Y, X, Z, W, moments=TRUE, approx=TRUE) {
 #' @param na.action function which indicates what should happen when the data
 #'     contain \code{NA}s. The default is set by the \code{na.action} setting of
 #'     \code{options} (usually \code{na.omit}).
-#' @param inference Vector specifying inference method(s). The elements of
-#'     the vector can consist of the following methods:
-#' \describe{
-#'
-#'   \item{"standard"}{Report inference based on tsls, liml, and mbtsls, along
-#'                     with homoscedastic heteroscedasticity-robust standard
-#'                     errors valid under standard asymptotic sequence}
-#'
-#'   \item{"re"}{Inference based on Hessian of random effects likelihood}
-#'
-#'   \item{"il"}{Inference based on Hessian of invariant likelihood, evaluated
-#'               numerically}
-#'
-#'   \item{"lil"}{Inference based on information matrix of limited
-#'               information likelihood}
-#'
-#'   \item{"md"}{Inference based on the minimum distance objective function} }
 #' @param approx if \code{TRUE}, then estimates of third and fourth moments used
 #'     in inference based on the minimum distance objective function
 #'     (\code{inference="md"}) use an appriximation to speed up the
 #'     calculations.
+#' @inheritParams IVreg.fit
 #' @examples
 #' ## Specification as in Table V, columns (1) and (2) in Angrist and Krueger
 #' IVreg(lwage~education+as.factor(yob)|as.factor(qob)*as.factor(yob),
@@ -165,51 +149,77 @@ IVreg <- function (formula, data, subset, na.action, inference="standard",
 
     d <- IVData(Y, X, Z, W, moments=("md" %in% inference), approx=approx)
 
-    est <- data.frame(row.names=c("ols", "tsls", "liml", "mbtsls", "emd"))
     ret <- structure(list(IVData=d, call=cl, formula=formula(formula),
-                                            na.action=attr(mf, "na.action"),
-                                            estimate=est),
-                     class="IVresults")
+                                            na.action=attr(mf, "na.action")),
+                     class="IVResults")
+
+    ret$estimate <- IVreg.fit(d, inference=inference)
+
+    ret
+}
+
+#' Low-level interfact to \code{IVreg}
+#' @param d Object of class \code{"IVData"}
+#' @param inference Vector specifying inference method(s). The elements of
+#'     the vector can consist of the following methods:
+#' \describe{
+#'
+#'   \item{"standard"}{Report inference based on tsls, liml, and mbtsls, along
+#'                     with homoscedastic heteroscedasticity-robust standard
+#'                     errors valid under standard asymptotic sequence}
+#'
+#'   \item{"re"}{Inference based on Hessian of random effects likelihood}
+#'
+#'   \item{"il"}{Inference based on Hessian of invariant likelihood, evaluated
+#'               numerically}
+#'
+#'   \item{"lil"}{Inference based on information matrix of limited
+#'               information likelihood}
+#'
+#'   \item{"md"}{Inference based on the minimum distance objective function} }
+#' @export
+IVreg.fit <- function(d, inference) {
+    est <- data.frame(row.names=c("ols", "tsls", "liml", "mbtsls", "emd"))
 
     if ("standard" %in% inference) {
-        r <- IVreg.fit(d)
-        ret$estimate[-5, "beta"] <- r$beta
-        ret$estimate[-5, "se"] <- r$se
-        ret$estimate[-5, "ser"] <- r$ser
+        r <- IVregSI.fit(d)
+        est[-5, "beta"] <- r$beta
+        est[-5, "se"] <- r$se
+        est[-5, "ser"] <- r$ser
     }
 
     if ("lil" %in% inference) {
         r <- IVregLI.fit(d)
-        ret$estimate["liml", "beta"] <- r$beta
-        ret$estimate["liml", "lil"] <- r$se
+        est["liml", "beta"] <- r$beta
+        est["liml", "lil"] <- r$se
     }
 
     if ("re" %in% inference) {
         r <- IVregRE.fit(d)
-        ret$estimate["liml", "beta"] <- r$beta
-        ret$estimate["liml", "re"] <- r$se
+        est["liml", "beta"] <- r$beta
+        est["liml", "re"] <- r$se
     }
 
     if ("il" %in% inference) {
         r <- IVregIL.fit(d)
-        ret$estimate["liml", "beta"] <- r$beta
-        ret$estimate["liml", "il"] <- r$se
+        est["liml", "beta"] <- r$beta
+        est["liml", "il"] <- r$se
     }
 
     if ("md" %in% inference) {
         r <- IVregMD.fit(d, weight="LIML")
-        ret$estimate["liml", "beta"] <- r$beta
-        ret$estimate["liml", "md"] <- r$se
+        est["liml", "beta"] <- r$beta
+        est["liml", "md"] <- r$se
         r <- IVregMD.fit(d, weight="Optimal")
-        ret$estimate["emd", "beta"] <- r$beta
-        ret$estimate["emd", "md"] <- r$se
+        est["emd", "beta"] <- r$beta
+        est["emd", "md"] <- r$se
         r <- IVregUMD.fit(d, invalid=FALSE)
-        ret$estimate["mbtsls", "beta"] <- r$beta
-        ret$estimate["mbtsls", "md"] <- r$se
-        ret$estimate["mbtsls", "umd"] <- IVregUMD.fit(d, invalid=TRUE)$se
+        est["mbtsls", "beta"] <- r$beta
+        est["mbtsls", "md"] <- r$se
+        est["mbtsls", "umd"] <- IVregUMD.fit(d, invalid=TRUE)$se
     }
 
-    ret
+    est
 }
 
 #' Test of overidentifying restrictions
@@ -248,7 +258,7 @@ IVoverid.fit <- function(d) {
 }
 
 
-IVreg.fit <- function(d) {
+IVregSI.fit <- function(d) {
     ## 1. Estimates of beta
     mkap <- c(-d$nu/d$n, 0, d$ei[1], d$k/d$n)   # m(kappa)
     be.den <- function(m) d$T[2, 2]-m*d$S[2, 2] # denominator
@@ -339,12 +349,12 @@ IVregUMD.fit <- function(d, invalid=TRUE) {
 
 
 #' @export
-print.IVresults <- function(x, digits = getOption("digits"), ...) {
+print.IVResults <- function(x, digits = getOption("digits"), ...) {
     if (!is.null(x$call))
         cat("Call:\n", deparse(x$call), sep = "", fill=TRUE)
 
     r <- x$estimate[!is.na(x$estimate$beta), ]
-    colnames(r) <- c("Estimate", colnames(r[, -1]))
+    colnames(r) <- c("Estimate", colnames(r)[-1])
 
     if ("se" %in% colnames(r))
         colnames(r) <- c(c("Estimate", "Conventional", "Conv. (robust)"),

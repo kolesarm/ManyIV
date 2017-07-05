@@ -22,13 +22,13 @@ knitr::opts_chunk$set(tidy = TRUE, collapse=TRUE, comment = "#>",
 
 # Summary
 
-The package `RDHonest` implements estimators and confidence intervals in a
-linear instrumental variables model considered in @kolesar17md and @kcfgi14. In
-this vignette, we demonstrate the implementation of these estimators and
-confidence intervals using a subset of the dataset used in @ak91, which is
-included in the package as a data frame `ak80`. This data frame corresponds to a
-sample of males born in the US in 1930--39 from 5% sample of the 1980 Census.
-See `help("ManyIV::ak80")` for details.
+The package `ManyIV` implements estimators and confidence intervals in a linear
+instrumental variables model considered in @kolesar17md and @kcfgi14. In this
+vignette, we demonstrate the implementation of these estimators and confidence
+intervals using a subset of the dataset used in @ak91, which is included in the
+package as a data frame `ak80`. This data frame corresponds to a sample of males
+born in the US in 1930--39 from 5% sample of the 1980 Census. See
+`help("ManyIV::ak80")` for details.
 
 # Estimation and Inference
 
@@ -118,23 +118,8 @@ IVoverid(r1)
 
 # Implementation details
 
-\newcommand{\by}{\mathbf{Y}} %
-\newcommand{\bx}{\mathbf{X}} %
-\newcommand{\bg}{\mathbf{G}} %
-\newcommand{\bz}{{Z}} %
-\newcommand{\bp}{\mathbf{P}} %
 \newcommand{\br}{\mathbf{R}} %
-\newcommand{\eye}{{I}} %
-\newcommand{\Ni}{K} %
-\newcommand{\Ne}{L} %
 \newcommand{\Hm}[1]{{H}_{#1}} %hat matrix
-\newcommand{\Dm}[1]{\mathbf{D}_{#1}} %diagonal matrix
-\newcommand{\tsls}{\text{\textsc{tsls}}}%
-\newcommand{\ols}{\text{\textsc{ols}}}%
-\newcommand{\umd}{\text{\textsc{umd}}}%
-\newcommand{\re}{\text{\textsc{re}}}%
-\newcommand{\mbtsls}{\text{\textsc{mbtsls}}}%
-\newcommand{\liml}{\text{\textsc{liml}}}%
 \newcommand{\h}[2]{\hat{#1}_{\text{\textsc{#2}}}} %
 
 Let $$y_{i}=x_{i}\beta+w_{i}'\delta+\epsilon_{i},$$ where $y_{i}\in\mathbb{R}$
@@ -147,12 +132,12 @@ We observe an i.i.d.~sample $\{y_{i},x_{i},w_{i},z_{i}\}_{i=1}^{n}$. Let $Y$,
 $Z$, and $W$, denote matrices with rows $(y_{i},x_{i})$, $z_{i}'$ and $w_{i}'$.
 For any full-rank $n\times m$ matrix ${A}$, let $\Hm{{A}}={A}({A}'{A})^{-1}{A}'$
 denote the associated $n\times n$ projection matrix (also known as the hat
-matrix). Let $\eye_{m}$ denote the $m\times m$ identity matrix, and let
-${Z}_{\perp}=(\eye_{n}-\Hm{W}){Z}$ denote the residual from the sample
+matrix). Let $I_{m}$ denote the $m\times m$ identity matrix, and let
+${Z}_{\perp}=(I_{n}-\Hm{W}){Z}$ denote the residual from the sample
 projection of ${Z}$ onto $W$.
 
 Define matrices $S$ and $T$ as in @kolesar17md: \begin{align*}
-T&=Y'\Hm{\bz_{\perp}}Y/n,& S&=Y'(\eye_{n}-\Hm{Z,W})Y/(n-k-\ell). \end{align*}
+T&=Y'\Hm{Z_{\perp}}Y/n,& S&=Y'(I_{n}-\Hm{Z,W})Y/(n-k-\ell). \end{align*}
 Also define $m_{\min}$ and $m_{\max}$ to be the minimum and maximum eigenvalues
 of the matrix $S^{-1}T$. The estimators TSLS, OLS, MBTSLS, and LIML are all
 $k$-class estimators. A $k$-class estimator estimator with parameter $\kappa$ is
@@ -186,11 +171,11 @@ $\hat{\epsilon}(\kappa)=y-x\hat{\beta}(\kappa)-W'\hat{\delta}(\kappa)$,
 and $\hat{\delta}(\kappa)=(W'W)^{-1}W'(y-x\hat{\beta}(\kappa))$. This
 includes LIML, for which $\kappa$ is random (Stata disregards that). For OLS,
 we use the Stata 13 variance estimator
-$\hat{\sigma}=\hat{\epsilon}_{\ols}'\hat{\epsilon}_{\ols}/(n-\ell-1)$.
+$\hat{\sigma}=\hat{\epsilon}_{OLS}'\hat{\epsilon}_{OLS}/(n-\ell-1)$.
 
 To define the robust standard error estimators, let
 $\hat{R}_{i}=Z_{\perp,i}(Z_{\perp}'Z_{\perp})^{-1}Z_{\perp}x$. Then, for a
-$k$-class estimator (including \liml),
+$k$-class estimator (including LIML),
 \begin{equation*}
   \widehat{var}_{\text{StataR}}(\hat{\beta}(\kappa))
   =\frac{\sum_{i=1}^{n}\hat{\epsilon}_{i}(\kappa)\hat{R}_{i}^{2}}{n^{2}(T_{22}-m(\kappa)S_{22})^{2}}.
@@ -198,7 +183,7 @@ $k$-class estimator (including \liml),
 Note that $\widehat{var}_{\text{StataR}}(\hat{\beta}(\kappa))$ and
 $\widehat{var}_{\text{Stata}}(\hat{\beta}(\kappa))$ don't necessarily converge
 to the same quantity even under homoskedasticity. For OLS, we use
-$(n/(n-\Ne-1))^{1/2}x_{\perp}$ in place of $\hat{R}_{i}$.
+$(n/(n-\ell-1))^{1/2}x_{\perp}$ in place of $\hat{R}_{i}$.
 
 One could alternatively use $T_{22}$ in the denominator, or estimate
 $var(\epsilon_{i})$ using $\hat{\sigma}(\beta)=(1,-\beta)S(1,-\beta)'$. Such
@@ -213,7 +198,7 @@ F= \frac{n}{k}\frac{T_{22}}{S_{22}}.
 
 The Sargan test statistic is given by $nm_{\min}/(1-p/n-\ell/n+m_{\min}))$, and
 its $p$-value is based on a $\chi^{2}_{k-1}$ approximation. The Sargan test
-statistic is based on \liml, unlike in Stata 13's `estat overid`, where it
+statistic is based on LIML, unlike in Stata 13's `estat overid`, where it
 depends on what estimator was used to compute $\beta$. The adjusted Cragg-Donald
 test is described in @kolesar17md [Section 6].
 

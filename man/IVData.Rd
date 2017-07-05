@@ -4,7 +4,7 @@
 \alias{IVData}
 \title{Class constructor for IVData}
 \usage{
-IVData(Y, X, Z, W, moments = TRUE)
+IVData(Y, X, Z, W, moments = TRUE, approx = TRUE)
 }
 \arguments{
 \item{Y}{n-vector}
@@ -17,6 +17,9 @@ IVData(Y, X, Z, W, moments = TRUE)
 
 \item{moments}{if \code{TRUE}, compute estimates of third and fourth moments
 of the reduced-form errors based on least squares residuals}
+
+\item{approx}{if \code{TRUE}, then estimates of third and fourth moments use
+an appriximation to speed up the calculations.}
 }
 \description{
 Convert data to standardized format for use with low-level functions. Uses

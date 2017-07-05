@@ -4,7 +4,8 @@
 \alias{IVreg}
 \title{Fit instrumental-variable regression}
 \usage{
-IVreg(formula, data, subset, na.action, inference = "standard")
+IVreg(formula, data, subset, na.action, inference = "standard",
+  approx = TRUE)
 }
 \arguments{
 \item{formula}{specification of the regression relationship and the
@@ -42,8 +43,12 @@ contain \code{NA}s. The default is set by the \code{na.action} setting of
   \item{"lil"}{Inference based on information matrix of limited
               information likelihood}
 
-  \item{"md"}{Inference based on the minimum distance objective function}
-}}
+  \item{"md"}{Inference based on the minimum distance objective function} }}
+
+\item{approx}{if \code{TRUE}, then estimates of third and fourth moments used
+in inference based on the minimum distance objective function
+(\code{inference="md"}) use an appriximation to speed up the
+calculations.}
 }
 \description{
 Fit instrumental-variable regression
