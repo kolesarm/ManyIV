@@ -59,18 +59,20 @@ IVregIL.fit <- function(d) {
             besselI(d$n*sqrt(lam*Q.lam(lam)), d$k/2-1, expon.scaled=TRUE) -
             sqrt(lam/Q.lam(lam))
 
-    if (ff(1e-8)<0)
+    if (ff(1e-8)<0 | is.nan(ff(1e-8)))
         return(list(beta=be, se=Inf, lam=1e-6, Om=d$S,
                     lik=-logl(be, 1e-6, d$S)))
 
-    lam <- stats::uniroot(ff, c(1e-10, 3*d$ei[2]+1), tol=1e-10)$root
+    lam <- stats::uniroot(ff, c(1e-8, 3*d$ei[2]+1), tol=1e-10)$root
     Om <- (d$nu*d$S+d$n*d$T - d$n*lam*d$ei[2]/Q.lam(lam) *
            (c(be, 1) %o% c(be, 1)) / (aoa(be, d$S))) / (d$n-d$l)
 
     ## Hessian
     fh <- function(t) logl(t[1], t[2], cbind(c(t[3], t[4]), c(t[4], t[5])))
-    se <- sqrt(solve(numDeriv::hessian(fh, c(be, lam, Om[1, 1],
-                                             Om[1, 2], Om[2, 2])))[1, 1])
+    Hes <- numDeriv::hessian(fh, c(be, lam, Om[1, 1],
+                                             Om[1, 2], Om[2, 2]))
+
+    se <- if (Matrix::rankMatrix(Hes)==5) sqrt(solve()[1, 1]) else Inf
 
     list(beta=be, se=se, lam=lam, Om=Om, lik=-logl(be, lam, Om))
 }
