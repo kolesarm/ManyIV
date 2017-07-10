@@ -48,7 +48,7 @@ IVregIL.fit <- function(d) {
         Qt <- drop(crossprod(solve(Om, c(be, 1)), d$T %*% solve(Om, c(be, 1))) /
                    aoa(be, Om))
         ((d$n-d$l)*log(det(Om)) + sum(diag(solve(Om, d$nu*d$S+d$n*d$T)))
-            + d$n*lam - 2*lG(d$n*sqrt(lam*Qt), d$k)) / 2
+            + d$n*lam - 2*lG(d$n*sqrt(max(lam*Qt, 1e-10)), d$k)) / 2
     }
 
     Q.lam <- function(la)
@@ -71,8 +71,13 @@ IVregIL.fit <- function(d) {
     fh <- function(t) logl(t[1], t[2], cbind(c(t[3], t[4]), c(t[4], t[5])))
     Hes <- numDeriv::hessian(fh, c(be, lam, Om[1, 1],
                                              Om[1, 2], Om[2, 2]))
-
-    se <- if (Matrix::rankMatrix(Hes)==5) sqrt(solve()[1, 1]) else Inf
+    se <- if (sum(is.nan(Hes))>0) {
+              Inf
+          } else if (Matrix::rankMatrix(Hes)<5) {
+              Inf
+          } else {
+              sqrt(solve(Hes)[1, 1])
+          }
 
     list(beta=be, se=se, lam=lam, Om=Om, lik=-logl(be, lam, Om))
 }
