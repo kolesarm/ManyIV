@@ -1,6 +1,6 @@
 Package: ManyIV
 Title: Inference in instrumental variables models with many instruments
-Version: 0.0.1.9002
+Version: 0.0.2
 Authors@R: 'Michal Kolesar <kolesarmi@googlemail.com> [aut, cre]'
 Description: Calculates estimator and standard errors in a linear instrumental
     variables model with possibly many instruments and many exogenous regressors
@@ -22,3 +22,4 @@ Suggests:
     knitr,
     rmarkdown
 VignetteBuilder: knitr
+LazyLoad: yes

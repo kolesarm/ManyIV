@@ -1,7 +1,7 @@
 # ManyIV
 
 Inference in instrumental variables models with many instruments. The package
-implements procedures from [Kolesár (2017)](https://arxiv.org/abs/1504.02911).
+implements procedures from [Kolesár (2018, Journal of Econometrics)](https://doi.org/10.1016/j.jeconom.2018.01.004).
 
 See vignette `ManyIV.pdf` (stored under `inst/doc/`) for description of the
 package.
@@ -13,5 +13,5 @@ using the function `install_github()` from the `devtools` package:
 
 ```
 install.packages("devtools") ## if devtools package not installed
-devtools::install_github("kolesarm/RDHonest")
+devtools::install_github("kolesarm/ManyIV")
 ```

@@ -35,7 +35,7 @@ test_that("H matrix with group instruments", {
 
     expect_equal(deltan(ns)$delta, a.delta)
 
-    ## Example for R2
+    ## Example for R2 (page 8 of reply)
     ns <- 3*c(1, 1, 1, 1, 2, 2)
     k <- length(ns)-1
     n <- sum(ns)
@@ -46,6 +46,7 @@ test_that("H matrix with group instruments", {
     expect_equal(r$delta, b.delta)
     expect_equal(r$Xi, b.Xi)
     expect_equal(r$mu, -sqrt(r$delta*r$Xi)*sqrt(3/5))
-    r2 <- deltan(nns, c(0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1))
+    r2 <- deltan(c(rep(3, 8), rep(6, 4)),
+                 c(0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1))
     expect_equal(r2$mu^2/(r2$delta*r2$Xi), 3/5)
 })
