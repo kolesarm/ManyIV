@@ -4,13 +4,13 @@ aoa <- function(be, Om) drop(crossprod(c(be, 1), solve(Om, c(be, 1))))
 ## matrixcalc::duplication.matrix(2),elimination.matrix(2),N.matrix(2)
 D2 <- cbind(c(1, 0, 0, 0), c(0, 1, 1, 0), c(0, 0, 0, 1))
 L2 <- rbind(c(1, 0, 0, 0), c(0, 1, 0, 0), c(0, 0, 0, 1))
-N2 <- rbind(c(1, 0, 0, 0), c(0, 1/2, 1/2, 0 ), c(0, 1/2, 1/2, 0),
+N2 <- rbind(c(1, 0, 0, 0), c(0, 1/2, 1/2, 0), c(0, 1/2, 1/2, 0),
             c(0, 0, 0, 1))
 
 
 ## 1. Inference based on invariant and RE likelihood
 
-#' Class constructor for IVData
+#' Class constructor for \code{IVData}
 #'
 #' Convert data to standardized format for use with low-level functions. Uses
 #' \code{Matrix} package, which speeds up calculations.
@@ -22,7 +22,7 @@ N2 <- rbind(c(1, 0, 0, 0), c(0, 1/2, 1/2, 0 ), c(0, 1/2, 1/2, 0),
 #' @param moments if \code{TRUE}, compute estimates of third and fourth moments
 #'     of the reduced-form errors based on least squares residuals
 #' @param approx if \code{TRUE}, then estimates of third and fourth moments use
-#'     an appriximation to speed up the calculations.
+#'     an approximation to speed up the calculations.
 #' @import Matrix
 #' @export
 IVData <- function(Y, X, Z, W, moments=TRUE, approx=TRUE) {
@@ -113,19 +113,19 @@ IVData <- function(Y, X, Z, W, moments=TRUE, approx=TRUE) {
 #'     \code{options} (usually \code{na.omit}).
 #' @param approx if \code{TRUE}, then estimates of third and fourth moments used
 #'     in inference based on the minimum distance objective function
-#'     (\code{inference="md"}) use an appriximation to speed up the
+#'     (\code{inference="md"}) use an approximation to speed up the
 #'     calculations.
 #' @inheritParams IVreg.fit
 #' @examples
 #' ## Specification as in Table V, columns (1) and (2) in Angrist and Krueger
 #' IVreg(lwage~education+as.factor(yob)|as.factor(qob)*as.factor(yob),
 #'            data=ak80, inference=c("standard", "re", "il", "lil"))
-#' ## Only quarter of birth as instrument, add married, black and smsa as exogenous
-#' #regressors
+#' ## Only quarter of birth as instrument, add married, black and smsa as
+#' ## exogenous regressors
 #' IVreg(lwage~education+as.factor(yob)+black+smsa+married|as.factor(qob),
 #'            data=ak80, inference=c("standard", "re", "il", "lil"))
 #' @export
-IVreg <- function (formula, data, subset, na.action, inference="standard",
+IVreg <- function(formula, data, subset, na.action, inference="standard",
                    approx=TRUE) {
     formula <- Formula::as.Formula(formula)
     cl <- mf <- match.call(expand.dots = FALSE)
@@ -158,15 +158,17 @@ IVreg <- function (formula, data, subset, na.action, inference="standard",
     ret
 }
 
-#' Low-level interfact to \code{IVreg}
+#' Low-level computing engine called by \code{IVreg}
 #' @param d Object of class \code{"IVData"}
 #' @param inference Vector specifying inference method(s). The elements of
 #'     the vector can consist of the following methods:
 #' \describe{
 #'
-#'   \item{"standard"}{Report inference based on tsls, liml, and mbtsls, along
-#'                     with homoscedastic heteroscedasticity-robust standard
-#'                     errors valid under standard asymptotic sequence}
+#'   \item{"standard"}{Report inference based on TSLS, LIML, and MBTSLS, along
+#'                     with homoskedastic and heteroskedasticity-robust standard
+#'                     errors valid under standard asymptotic sequence, as well
+#'                     as standard errors that are valid under
+#'                     heteroskedasticity and treatment effect heterogeneity.}
 #'
 #'   \item{"re"}{Inference based on Hessian of random effects likelihood}
 #'
@@ -186,6 +188,7 @@ IVreg.fit <- function(d, inference) {
         est[-5, "beta"] <- r$beta
         est[-5, "se"] <- r$se
         est[-5, "ser"] <- r$ser
+        est[-5, "seh"] <- r$seh
     }
 
     if ("lil" %in% inference) {
@@ -272,12 +275,17 @@ IVregSI.fit <- function(d) {
     se[1] <- se[1]*sqrt(sm)
 
     ## 3. Stata robust standard errors
-    num <- sapply(2:4, function(j) drop(crossprod(d$Yhatp[, 2]*he(be[j]))))
+    num <- sapply(2:4, function(j) sum((d$Yhatp[, 2]*he(be[j]))^2))
     ser <- sqrt(c(drop(crossprod(d$Yt[, 2]*he(be[1])))*sm, num)) /
         pmax(d$n*pmax(be.den(mkap), 0))
+    ## 4. Standard errors under TE heteroegeneity
+    num <- function(j) sum((d$Yhatp[, 2]*he(be[j])+
+        (d$Yhatp[, 1]-d$Yhatp[, 2]*be[j])*(d$Yt[, 2]-d$Yhatp[, 2]))^2)
+    seh <- sqrt(c(NA, num(2), NA, num(4)))/pmax(d$n*pmax(be.den(mkap), 0))
 
-    names(be) <- names(se) <- names(ser) <- c("ols", "tsls", "liml", "mbtsls")
-    list(beta=be, se=se, ser=ser, lam=NA, Om=d$S)
+    names(be) <- names(se) <- names(ser) <- names(seh) <-
+        c("ols", "tsls", "liml", "mbtsls")
+    list(beta=be, se=se, ser=ser, seh=seh, lam=NA, Om=d$S)
 }
 
 
@@ -333,8 +341,7 @@ IVregMD.fit <- function(d, weight="Optimal") {
          Om=r1$Om)
 }
 
-#' Unrestriced minimum distance
-#' @keywords internal
+## Unrestricted minimum distance
 IVregUMD.fit <- function(d, invalid=TRUE) {
     Xi <- d$T - (d$k/d$n)*d$S
     be <- Xi[1, 2] / Xi[2, 2]

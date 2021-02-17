@@ -2,7 +2,7 @@
 % Please edit documentation in R/manyiv.R
 \name{IVreg.fit}
 \alias{IVreg.fit}
-\title{Low-level interfact to \code{IVreg}}
+\title{Low-level computing engine called by \code{IVreg}}
 \usage{
 IVreg.fit(d, inference)
 }
@@ -13,9 +13,11 @@ IVreg.fit(d, inference)
     the vector can consist of the following methods:
 \describe{
 
-  \item{"standard"}{Report inference based on tsls, liml, and mbtsls, along
-                    with homoscedastic heteroscedasticity-robust standard
-                    errors valid under standard asymptotic sequence}
+  \item{"standard"}{Report inference based on TSLS, LIML, and MBTSLS, along
+                    with homoskedastic and heteroskedasticity-robust standard
+                    errors valid under standard asymptotic sequence, as well
+                    as standard errors that are valid under
+                    heteroskedasticity and treatment effect heterogeneity.}
 
   \item{"re"}{Inference based on Hessian of random effects likelihood}
 
@@ -28,5 +30,5 @@ IVreg.fit(d, inference)
   \item{"md"}{Inference based on the minimum distance objective function} }}
 }
 \description{
-Low-level interfact to \code{IVreg}
+Low-level computing engine called by \code{IVreg}
 }

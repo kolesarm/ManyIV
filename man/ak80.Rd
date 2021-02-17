@@ -4,7 +4,8 @@
 \name{ak80}
 \alias{ak80}
 \title{Angrist-Krueger (1991) census data}
-\format{A data frame with 329,509 observations on 10 variables:
+\format{
+A data frame with 329,509 observations on 10 variables:
 
 \describe{
 
@@ -28,7 +29,8 @@
 
 \item{division}{Factor variable indicating division}
 
-}}
+}
+}
 \source{
 Josh Angrist's website,
     \url{http://economics.mit.edu/faculty/angrist/data1/data/angkru1991}

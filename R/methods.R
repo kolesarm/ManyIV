@@ -8,8 +8,9 @@ print.IVResults <- function(x, digits = getOption("digits"), ...) {
     colnames(r) <- c("Estimate", colnames(r)[-1])
 
     if ("se" %in% colnames(r))
-        colnames(r) <- c(c("Estimate", "Conventional", "Conv. (robust)"),
-                         colnames(r[, -(1:3)]))
+        colnames(r) <- c(c("Estimate", "Conventional", "Conv. (robust)",
+                           "HTE robust"),
+                         colnames(r[, -(1:4)]))
 
     cat("\nFirst-stage F: ", x$IVData$F, "\n\n")
     cat("Estimates and standard errors:\n")

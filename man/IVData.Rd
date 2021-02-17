@@ -2,7 +2,7 @@
 % Please edit documentation in R/manyiv.R
 \name{IVData}
 \alias{IVData}
-\title{Class constructor for IVData}
+\title{Class constructor for \code{IVData}}
 \usage{
 IVData(Y, X, Z, W, moments = TRUE, approx = TRUE)
 }
@@ -19,7 +19,7 @@ IVData(Y, X, Z, W, moments = TRUE, approx = TRUE)
 of the reduced-form errors based on least squares residuals}
 
 \item{approx}{if \code{TRUE}, then estimates of third and fourth moments use
-an appriximation to speed up the calculations.}
+an approximation to speed up the calculations.}
 }
 \description{
 Convert data to standardized format for use with low-level functions. Uses

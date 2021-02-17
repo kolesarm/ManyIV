@@ -4,8 +4,7 @@
 \alias{IVreg}
 \title{Fit instrumental-variable regression}
 \usage{
-IVreg(formula, data, subset, na.action, inference = "standard",
-  approx = TRUE)
+IVreg(formula, data, subset, na.action, inference = "standard", approx = TRUE)
 }
 \arguments{
 \item{formula}{specification of the regression relationship and the
@@ -31,9 +30,11 @@ contain \code{NA}s. The default is set by the \code{na.action} setting of
     the vector can consist of the following methods:
 \describe{
 
-  \item{"standard"}{Report inference based on tsls, liml, and mbtsls, along
-                    with homoscedastic heteroscedasticity-robust standard
-                    errors valid under standard asymptotic sequence}
+  \item{"standard"}{Report inference based on TSLS, LIML, and MBTSLS, along
+                    with homoskedastic and heteroskedasticity-robust standard
+                    errors valid under standard asymptotic sequence, as well
+                    as standard errors that are valid under
+                    heteroskedasticity and treatment effect heterogeneity.}
 
   \item{"re"}{Inference based on Hessian of random effects likelihood}
 
@@ -47,7 +48,7 @@ contain \code{NA}s. The default is set by the \code{na.action} setting of
 
 \item{approx}{if \code{TRUE}, then estimates of third and fourth moments used
 in inference based on the minimum distance objective function
-(\code{inference="md"}) use an appriximation to speed up the
+(\code{inference="md"}) use an approximation to speed up the
 calculations.}
 }
 \description{
@@ -57,8 +58,8 @@ Fit instrumental-variable regression
 ## Specification as in Table V, columns (1) and (2) in Angrist and Krueger
 IVreg(lwage~education+as.factor(yob)|as.factor(qob)*as.factor(yob),
            data=ak80, inference=c("standard", "re", "il", "lil"))
-## Only quarter of birth as instrument, add married, black and smsa as exogenous
-#regressors
+## Only quarter of birth as instrument, add married, black and smsa as
+## exogenous regressors
 IVreg(lwage~education+as.factor(yob)+black+smsa+married|as.factor(qob),
            data=ak80, inference=c("standard", "re", "il", "lil"))
 }

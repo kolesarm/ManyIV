@@ -3,7 +3,7 @@ context("Group instruments calculations")
 test_that("H matrix with group instruments", {
 
     deltan <- function(ns, pis=rep(0, length(ns)-1)) {
-        groups <- rep(1:length(ns), ns)
+        groups <- rep(seq_along(ns), ns)
         ## Z^*
         Zst <- matrix(0, nrow=length(groups), ncol=length(unique(groups)))
         Zst[cbind(seq_along(groups), groups)] <- 1
