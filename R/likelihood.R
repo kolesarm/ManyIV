@@ -1,6 +1,5 @@
-#' Limited information likelihood
-#' @param d object of class \code{RDData}
-#' @keywords internal
+## Limited information likelihood
+## @param d object of class \code{RDData}
 IVregLI.fit <- function(d) {
     be <- (d$T[1, 2]- d$ei[1] * d$S[1, 2]) / (d$T[2, 2]-d$ei[1]*d$S[2, 2])
     Om <- (d$nu*d$S + d$n*(d$T-d$ei[2]*(c(be, 1) %o% c(be, 1)) /
@@ -11,9 +10,8 @@ IVregLI.fit <- function(d) {
     list(beta=be, se=se, lam=lam, Om=Om)
 }
 
-#' Random-effects likelihood
-#' @param d object of class \code{RDData}
-#' @keywords internal
+## Random-effects likelihood
+## @param d object of class \code{RDData}
 IVregRE.fit <- function(d) {
     ## Parameter estimates
     be <- (d$T[1, 2]- d$ei[1] * d$S[1, 2]) / (d$T[2, 2]-d$ei[1]*d$S[2, 2])
@@ -32,9 +30,8 @@ IVregRE.fit <- function(d) {
 }
 
 
-#' Invariant likelihood
-#' @param d object of class \code{RDData}
-#' @keywords internal
+## Invariant likelihood
+## @param d object of class \code{RDData}
 IVregIL.fit <- function(d) {
 
     be <- (d$T[1, 2]- d$ei[1] * d$S[1, 2]) / (d$T[2, 2]-d$ei[1]*d$S[2, 2])

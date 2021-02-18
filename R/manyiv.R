@@ -23,7 +23,6 @@ N2 <- rbind(c(1, 0, 0, 0), c(0, 1/2, 1/2, 0), c(0, 1/2, 1/2, 0),
 #'     of the reduced-form errors based on least squares residuals
 #' @param approx if \code{TRUE}, then estimates of third and fourth moments use
 #'     an approximation to speed up the calculations.
-#' @import Matrix
 #' @export
 IVData <- function(Y, X, Z, W, moments=TRUE, approx=TRUE) {
     ols <- function(X, Y)
@@ -63,9 +62,11 @@ IVData <- function(Y, X, Z, W, moments=TRUE, approx=TRUE) {
             d$m3 <- d$n-3*(d$k+d$l)
             d$m4 <- d$n-4*(d$k+d$l)
         } else {
-            m3 <- sum(sapply(1:s, function(j) Hj(ix[j, 1]:ix[j, 2], 3)))
+            m3 <- sum(vapply(seq_len(s),
+                             function(j) Hj(ix[j, 1]:ix[j, 2], 3), numeric(1)))
             d$m3 <- sum((1-diagPX)^3)+sum(diagPX^3)-m3
-            m4 <- sum(sapply(1:s, function(j) Hj(ix[j, 1]:ix[j, 2], 4)))
+            m4 <- sum(vapply(seq_len(s),
+                 function(j) Hj(ix[j, 1]:ix[j, 2], 4), numeric(1)))
             d$m4 <- sum((1-diagPX)^4)+m4-sum(diagPX^4)
         }
 
@@ -265,17 +266,20 @@ IVregSI.fit <- function(d) {
     ## 1. Estimates of beta
     mkap <- c(-d$nu/d$n, 0, d$ei[1], d$k/d$n)   # m(kappa)
     be.den <- function(m) d$T[2, 2]-m*d$S[2, 2] # denominator
-    be <- sapply(mkap, function(m) (d$T[1, 2]- m * d$S[1, 2])/be.den(m))
+    be <- vapply(mkap, function(m) (d$T[1, 2]- m * d$S[1, 2])/be.den(m),
+                 numeric(1))
 
     ## 2. Stata standard errors
     he <- function(be) d$Yt[, 1]- d$Yt[, 2]*be
     hat.sig <- function(be) drop(crossprod(he(be))) / d$n
-    se <- sqrt(sapply(be, hat.sig) / (d$n*pmax(be.den(mkap), 0)))
+    se <- sqrt(vapply(be, hat.sig, numeric(1)) /
+               (d$n*pmax(be.den(mkap), 0)))
     sm <- d$n/(d$n - d$l-1)
     se[1] <- se[1]*sqrt(sm)
 
     ## 3. Stata robust standard errors
-    num <- sapply(2:4, function(j) sum((d$Yhatp[, 2]*he(be[j]))^2))
+    num <- vapply(2:4, function(j) sum((d$Yhatp[, 2]*he(be[j]))^2),
+                  numeric(1))
     ser <- sqrt(c(drop(crossprod(d$Yt[, 2]*he(be[1])))*sm, num)) /
         pmax(d$n*pmax(be.den(mkap), 0))
     ## 4. Standard errors under TE heteroegeneity
@@ -309,8 +313,7 @@ MDDelta <- function(be, Om, Xi22, d, Gaussian=FALSE, invalid=FALSE) {
 }
 
 
-#' Minimum distance
-#' @keywords internal
+## Minimum distance
 IVregMD.fit <- function(d, weight="Optimal") {
 
     ## LIML standard error

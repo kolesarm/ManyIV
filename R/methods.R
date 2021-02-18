@@ -1,4 +1,3 @@
-#' @method print IVResults
 #' @export
 print.IVResults <- function(x, digits = getOption("digits"), ...) {
     if (!is.null(x$call))

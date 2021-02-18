@@ -1,5 +1,8 @@
+^\.travis\.yml$
+^codecov\.yml$
+^Meta$
+^doc$
 .gitignore
 ^data-raw/*$
 readme.md
-^doc$
-^Meta$
+.lintr

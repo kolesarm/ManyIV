@@ -22,13 +22,16 @@ test_that("Psi3 and Psi4 calculations", {
     m2 <- sum(Matrix::diag(M)^2)
 
     vi <- function(i) kronecker(V[i, ]%o%V[i, ], V[i, ])
-    Psi3 <- matrix(rowSums(sapply(1:d$n, vi)), ncol=2) / m3
+
+    Psi3 <- matrix(rowSums(vapply(seq_len(d$n), vi, numeric(8))),
+                   ncol=2) / m3
 
     expect_equal(Psi3, d$Psi3)
 
     vi <- function(i) kronecker(V[i, ]%o%V[i, ], V[i, ]%o% V[i, ])
     Psi4 <- (m2-m4)*(2*N2 %*% kronecker(d$S, d$S)+tcrossprod(as.vector(d$S)))
-    Psi4 <- (matrix(rowSums(sapply(1:d$n, vi)), ncol=4) - Psi4)/ m4
+    Psi4 <- (matrix(rowSums(vapply(seq_len(d$n), vi, numeric(16))),
+                    ncol=4) - Psi4)/ m4
 
     expect_equal(Psi4, d$Psi4)
     expect_equal(m3, d$m3)
