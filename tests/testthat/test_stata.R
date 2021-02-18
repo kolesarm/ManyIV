@@ -30,6 +30,9 @@ test_that("Match stata on AK data", {
     r3 <- IVreg(lwage~education+as.factor(yob)+as.factor(sob)|
                     as.factor(qob)*as.factor(sob)+
                     as.factor(qob)*as.factor(yob), data=ak80)
+    r0 <- capture.output(print(r3, digits=4))
+
+
     expect_equal(as.numeric(r3$estimate["tsls", 1:3]),
                  c(0.0928180625, 0.0093013345, 0.0096641481))
     expect_equal(as.numeric(r3$estimate["liml", 1:3]),
@@ -38,6 +41,8 @@ test_that("Match stata on AK data", {
                  c(0.0673389705, 0.0003464258, 0.0003883466))
     expect_equal(as.numeric(r3$estimate["mbtsls", 1:3]),
                  c(0.1089429483, 0.0120411994, 0.0159979308))
+    expect_equal(r0[12],
+                 "liml    0.10640    0.0116384      0.0149804         NA")
 
     ## Table II
     ak80$Q1 <- (ak80$qob==1)+0

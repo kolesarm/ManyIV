@@ -16,6 +16,5 @@ print.IVResults <- function(x, digits = getOption("digits"), ...) {
 
     print.data.frame(r, digits = digits, ...)
 
-
     invisible(x)
 }
