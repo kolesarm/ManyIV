@@ -27,7 +27,7 @@ test_that("Match stata on AK data", {
     expect_equal(r2$estimate["mbtsls", 1], c(0.3505927902))
     ## Small-sample adjustmenst are not done by default in Stata in IV. One
     ## needs option "small". Then we scale by n/(n-L-1)
-    expect_equal(unname(unlist(r2$estimate[2, 2:3]))*sqrt(100/89),
+    expect_equal(unname(unlist(r2$estimate[3, 2:3]))*sqrt(100/89),
                  c(0.4016139774, 0.5280258614))
 
     ## Table VII
