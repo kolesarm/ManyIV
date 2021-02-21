@@ -8,7 +8,7 @@ ak2 <- ak
 
 
 names(ak) <- c("v1", "age", "v3", "education", "enocent", "esocent", "v7", "v8",
-               "lwage", "married", "midatl", "mt", "neweng", "v14", "v15",
+               "lwage", "married", "midatl", "mt", "neweng", "v14", "pacific",
                "census", "sob", "qob", "black", "smsa", "soatl", "v22", "v23",
                "wnocent", "wsocent", "v26", "yob")
 ## Clean up divisions

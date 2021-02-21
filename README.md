@@ -1,4 +1,4 @@
-[![Travis build status](https://travis-ci.com/kolesarm/ManyIV.svg?branch=master)](https://travis-ci.com/kolesarm/ManyIV) [![Coverage status](https://codecov.io/gh/kolesarm/ManyIV/branch/master/graph/badge.svg)](https://codecov.io/github/kolesarm/ManyIV?branch=master)
+[![R-CMD-check](https://github.com/kolesarm/ManyIV/workflows/R-CMD-check/badge.svg)](https://github.com/kolesarm/ManyIV/actions) [![Coverage status](https://codecov.io/gh/kolesarm/ManyIV/branch/master/graph/badge.svg)](https://codecov.io/github/kolesarm/ManyIV?branch=master)
 
 # ManyIV
 

@@ -20,11 +20,15 @@ test_that("Match stata on AK data", {
     expect_equal(as.numeric(r2$estimate["tsls", 1:3]),
                  c(-0.1609028242, 0.3277804536, 0.4120184496))
     expect_equal(as.numeric(r2$estimate["liml", 1:3]),
-                 c(-0.2054464334, 0.3788818685, 0.4981386013))
+                 c(-0.2054464334, 0.3788818685, 0.49813860131))
     expect_equal(as.numeric(r2$estimate["ols", 1:3]),
                  c(0.1004438463, 0.0346482285, 0.0233448020))
     ## For mbtsls, covariance matrix is not pd, so we report Inf, unlike stata
     expect_equal(r2$estimate["mbtsls", 1], c(0.3505927902))
+    ## Small-sample adjustmenst are not done by default in Stata in IV. One
+    ## needs option "small". Then we scale by n/(n-L-1)
+    expect_equal(unname(unlist(r2$estimate[2, 2:3]))*sqrt(100/89),
+                 c(0.4016139774, 0.5280258614))
 
     ## Table VII
     r3 <- IVreg(lwage~education+as.factor(yob)+as.factor(sob)|

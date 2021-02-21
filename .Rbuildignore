@@ -1,4 +1,3 @@
-^\.travis\.yml$
 ^codecov\.yml$
 ^Meta$
 ^doc$
@@ -7,3 +6,4 @@
 readme.md
 .lintr
 notes.org
+^\.github$

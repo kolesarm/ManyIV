@@ -274,7 +274,7 @@ IVregSI.fit <- function(d) {
     hat.sig <- function(be) drop(crossprod(he(be))) / d$n
     se <- sqrt(vapply(be, hat.sig, numeric(1)) /
                (d$n*pmax(be.den(mkap), 0)))
-    sm <- d$n/(d$n - d$l-1)
+    sm <- d$n/(d$n - d$l-1) # Small-sample adjustment for OLS only
     se[1] <- se[1]*sqrt(sm)
 
     ## 3. Stata robust standard errors
