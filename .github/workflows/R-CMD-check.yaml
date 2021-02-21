@@ -66,6 +66,7 @@ jobs:
 
       - name: Install dependencies
         run: |
+          remotes::install_cran("tinytex")
           remotes::install_deps(dependencies = TRUE)
           remotes::install_cran("rcmdcheck")
           remotes::install_cran("formatR")
