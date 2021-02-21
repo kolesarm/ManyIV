@@ -118,12 +118,9 @@ IVData <- function(Y, X, Z, W, moments=TRUE, approx=TRUE) {
 #'     calculations.
 #' @inheritParams IVreg.fit
 #' @examples
-#' ## Specification as in Table V, columns (1) and (2) in Angrist and Krueger
-#' IVreg(lwage~education+as.factor(yob)|as.factor(qob)*as.factor(yob),
-#'            data=ak80, inference=c("standard", "re", "il", "lil"))
-#' ## Only quarter of birth as instrument, add married, black and smsa as
+#' ## Only quarter of birth as instrument, with married, black and smsa as
 #' ## exogenous regressors
-#' IVreg(lwage~education+as.factor(yob)+black+smsa+married|as.factor(qob),
+#' IVreg(lwage~education+as.factor(yob)+black+smsa+married | as.factor(qob),
 #'            data=ak80, inference=c("standard", "re", "il", "lil"))
 #' @export
 IVreg <- function(formula, data, subset, na.action, inference="standard",
