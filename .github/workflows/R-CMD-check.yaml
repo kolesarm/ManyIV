@@ -58,7 +58,7 @@ jobs:
           key: ${{ runner.os }}-${{ hashFiles('.github/R-version') }}-1-${{ hashFiles('.github/depends.Rds') }}
           restore-keys: ${{ runner.os }}-${{ hashFiles('.github/R-version') }}-1-
 
-      - name: Install system dependencies
+      - name: Install Linux system dependencies
         if: runner.os == 'Linux'
         run: |
           while read -r cmd
@@ -66,13 +66,16 @@ jobs:
             eval sudo $cmd
           done < <(Rscript -e 'writeLines(remotes::system_requirements("ubuntu", "20.04"))')
           apt-get install -y ghostscript
+      - name: Install Mac OS system dependencies
         if: matrix.config.os == 'macOS-latest'
         run: |
           brew install ghostscript
-
+      - name: Install Windows system dependencies
+        if: runner.os == 'Windows'
+        run: |
+          choco install ghostscript
       - name: Install dependencies
         run: |
-          remotes::install_cran("tinytex")
           remotes::install_deps(dependencies = TRUE)
           remotes::install_cran("rcmdcheck")
           remotes::install_cran("formatR")
