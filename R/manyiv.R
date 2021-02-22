@@ -8,22 +8,17 @@ N2 <- rbind(c(1, 0, 0, 0), c(0, 1/2, 1/2, 0), c(0, 1/2, 1/2, 0),
             c(0, 0, 0, 1))
 
 
-## 1. Inference based on invariant and RE likelihood
-
-#' Class constructor for \code{IVData}
-#'
-#' Convert data to standardized format for use with low-level functions. Uses
-#' \code{Matrix} package, which speeds up calculations.
-#'
-#' @param Y n-vector
-#' @param X n-vector
-#' @param Z [n x k] Matrix of instruments, class \code{Matrix}
-#' @param W [n x ell] Matrix of covariates, class \code{Matrix}
-#' @param moments if \code{TRUE}, compute estimates of third and fourth moments
-#'     of the reduced-form errors based on least squares residuals
-#' @param approx if \code{TRUE}, then estimates of third and fourth moments use
-#'     an approximation to speed up the calculations.
-#' @export
+## Class constructor for \code{"IVData"}
+## Convert data to standardized format for use with low-level functions. Uses
+## \code{Matrix} package, which speeds up calculations.
+## @param Y n-vector
+## @param X n-vector
+## @param Z [n x k] Matrix of instruments, class \code{Matrix}
+## @param W [n x ell] Matrix of covariates, class \code{Matrix}
+## @param moments if \code{TRUE}, compute estimates of third and fourth moments
+##     of the reduced-form errors based on least squares residuals
+## @param approx if \code{TRUE}, then estimates of third and fourth moments use
+##     an approximation to speed up the calculations.
 IVData <- function(Y, X, Z, W, moments=TRUE, approx=TRUE) {
     ols <- function(X, Y)
         Matrix::solve(Matrix::crossprod(X), Matrix::crossprod(X, Y))
@@ -96,39 +91,111 @@ IVData <- function(Y, X, Z, W, moments=TRUE, approx=TRUE) {
     structure(d, class="IVData")
 }
 
-#' Fit instrumental-variable regression
-#' @param formula specification of the regression relationship and the
+#' Instrumental Variables Regression
+#'
+#' Fit instrumental variables regression by a number of methods, and compute
+#' associated standard errors, as specified by \code{inference}
+#' @param formula Specification of the regression relationship and the
 #'     instruments of the form \code{y ~ x + w1 + w2 | z1 + z2 + z3}, where
 #'     \code{y} is the outcome variable, \code{x} is a scalar endogenous
-#'     variable, \code{w1,w2} are exogenous regressors, and \code{z1,z2,z3} are
-#'     excluded instruments.
-#' @param data optional data frame, list or environment (or object coercible by
-#'     \code{as.data.frame} to a data frame) containing the outcome and running
-#'     variables in the model. If not found in \code{data}, the variables are
-#'     taken from \code{environment(formula)}, typically the environment from
-#'     which the function is called.
-#' @param subset optional vector specifying a subset of observations to be used
-#'     in the fitting process.
-#' @param na.action function which indicates what should happen when the data
+#'     variable, \code{w1}, \code{w2} are exogenous regressors, and \code{z1},
+#'     \code{z2}, and \code{z3} are excluded instruments.
+#' @param data An optional data frame, list or environment (or object coercible
+#'     by \code{as.data.frame} to a data frame) containing the variables in the
+#'     model. If not found in \code{data}, the variables are taken from
+#'     \code{environment(formula)}, typically the environment from which the
+#'     function is called.
+#' @param subset An optional vector specifying a subset of observations to be
+#'     used in the fitting process.
+#' @param na.action A function indicating what should happen when the data
 #'     contain \code{NA}s. The default is set by the \code{na.action} setting of
 #'     \code{options} (usually \code{na.omit}).
 #' @param approx if \code{TRUE}, then estimates of third and fourth moments used
 #'     in inference based on the minimum distance objective function
-#'     (\code{inference="md"}) use an approximation to speed up the
+#'     (\code{inference="md"}) are based on an approximation to speed up the
 #'     calculations.
-#' @inheritParams IVreg.fit
+#' @param inference Vector specifying inference method(s). The elements of
+#'     the vector can consist of the following methods:
+#' \describe{
+#'
+#'   \item{\code{"standard"}}{Report inference based on TSLS, LIML, and MBTSLS,
+#'                along with homoskedastic and heteroskedasticity-robust
+#'                standard errors, standard errors that are valid under
+#'                heteroskedasticity and treatment effect heterogeneity. All
+#'                three standard errors are valid under standard asymptotics
+#'                only.}
+#'
+#'   \item{\code{"re"}}{Report standard errors for LIML based on Hessian of
+#'                random effects likelihood}
+#'
+#'   \item{\code{"il"}}{Report standard errors for LIML based on Hessian of
+#'                invariant likelihood, evaluated numerically}
+#'
+#'   \item{\code{"lil"}}{Report standard errors for LIML based on the
+#'                information matrix of limited information likelihood}
+#'
+#'   \item{\code{"md"}}{Compute the EMD, LIML, and MBTSLS estimators, and report
+#'                standard errors for LIML, MBTSLS, and EMD based on the minimum
+#'                distance objective function proposed in Kolesár (2018)}
+#'
+#' }
+#' See the vignette \code{vignette("ManyIV", package = "ManyIV")} for a detailed
+#' description of these methods.
+#' @references {
+#'
+#' \cite{Kolesár, Michal. Minimum Distance Approach to Inference with Many
+#' Instruments.” Journal of Econometrics 204 (1): 86–100.}
+#'
+#' }
+#' @return An object of class \code{"IVResults"}, which is a list with the
+#'     following components:
+#'
+#' \describe{
+#'
+#' \item{IVData}{An object of class \code{"IVData"}, which is a list with at
+#'    least the following components:
+#'
+#'    \describe{
+#'    \item{Z}{Matrix of instruments}
+#'    \item{Y}{Matrix with two columns collecting the endogenous variables}
+#'    \item{W}{Matrix of exogenous regressors}
+#'
+#'    \item{n}{Number of observations used, the number of rows of \code{Z},
+#'         \code{W}, or \code{Yp}}
+#'
+#'    \item{l}{Dimension of the exogenous regressors, the number of columns of
+#'          \code{W}}
+#'
+#'    \item{k}{Dimension of the instruments, the number of columns of \code{Z}}
+#'
+#'    \item{F}{First-stage \eqn{F} statistic}
+#'
+#'     }
+#'
+#' }
+#'
+#' \item{call}{The matched call.}
+#'
+#' \item{estimate}{A data frame containing the estimation results.}
+#' }
+#'
+#' The \code{print} function can be used to print a summary of the results.
 #' @examples
-#' ## Only quarter of birth as instrument, with married, black and smsa as
-#' ## exogenous regressors
-#' IVreg(lwage~education+as.factor(yob)+black+smsa+married | as.factor(qob),
+#' ## Use quarter of birth as an instrument for education, controlling for
+#' ## marriage and black indicators
+#' IVreg(lwage~education+black+married | as.factor(qob),
 #'            data=ak80, inference=c("standard", "re", "il", "lil"))
 #' @export
 IVreg <- function(formula, data, subset, na.action, inference="standard",
                    approx=TRUE) {
-    formula <- Formula::as.Formula(formula)
     cl <- mf <- match.call(expand.dots = FALSE)
+    if (missing(data))
+        data <- environment(formula)
     m <- match(c("formula", "data", "subset", "na.action"), names(mf), 0L)
     mf <- mf[c(1L, m)]
+    mf$drop.unused.levels <- TRUE
+
+    formula <- Formula::as.Formula(formula)
     mf$formula <- formula
     mf[[1L]] <- quote(stats::model.frame)
     mf <- eval(mf, parent.frame())
@@ -138,46 +205,22 @@ IVreg <- function(formula, data, subset, na.action, inference="standard",
     Xname <- attr(mtX, "term.labels")[1]
     W <- stats::model.matrix(mtX, mf)
     X <- W[, Xname]
-    W <- Matrix::Matrix(W[, !(colnames(W) %in% Xname)])
+    W <- Matrix::Matrix(W[, !(colnames(W) %in% Xname), drop=FALSE])
     mtZ <- stats::delete.response(stats::terms(formula, data = data, rhs = 2))
     Z <- stats::model.matrix(mtZ, mf)
-    ## Remove intercept now, using attr(mtZ, "intercept") <- 0 won't help if Z
-    ## consists of indicators
-    Z <- Matrix::Matrix(Z[, !colnames(Z) %in% colnames(W)])
+    ## Remove intercept
+    Z <- Matrix::Matrix(Z[, !colnames(Z) %in% colnames(W), drop=FALSE])
 
     d <- IVData(Y, X, Z, W, moments=("md" %in% inference), approx=approx)
 
-    ret <- structure(list(IVData=d, call=cl, formula=formula(formula),
-                                            na.action=attr(mf, "na.action")),
-                     class="IVResults")
-
-    ret$estimate <- IVreg.fit(d, inference=inference)
-
-    ret
+    structure(list(IVData=d, call=cl,
+                   estimate=IVreg.fit(d, inference=inference)),
+              class="IVResults")
 }
 
-#' Low-level computing engine called by \code{IVreg}
-#' @param d Object of class \code{"IVData"}
-#' @param inference Vector specifying inference method(s). The elements of
-#'     the vector can consist of the following methods:
-#' \describe{
-#'
-#'   \item{"standard"}{Report inference based on TSLS, LIML, and MBTSLS, along
-#'                     with homoskedastic and heteroskedasticity-robust standard
-#'                     errors valid under standard asymptotic sequence, as well
-#'                     as standard errors that are valid under
-#'                     heteroskedasticity and treatment effect heterogeneity.}
-#'
-#'   \item{"re"}{Inference based on Hessian of random effects likelihood}
-#'
-#'   \item{"il"}{Inference based on Hessian of invariant likelihood, evaluated
-#'               numerically}
-#'
-#'   \item{"lil"}{Inference based on information matrix of limited
-#'               information likelihood}
-#'
-#'   \item{"md"}{Inference based on the minimum distance objective function} }
-#' @export
+## Low-level computing engine called by \code{IVreg}
+## @param d Object of class \code{"IVData"}
+## @return A data frame containing the estimation results.
 IVreg.fit <- function(d, inference) {
     est <- data.frame(row.names=c("ols", "tsls", "liml", "mbtsls", "emd"))
 
@@ -225,12 +268,33 @@ IVreg.fit <- function(d, inference) {
 
 #' Test of overidentifying restrictions
 #'
-#' Report test statistic and p-value for testing of overidentifying
-#' restrictions. The Sargan test is valid under few instruments. The Modified
+#' Report the Sargan and modified Cragg-Donal test statistics and \eqn{p}-values
+#' for testing of overidentifying restrictions, assuming homoskedasticity of the
+#' reduced form. The Sargan test is valid under few instruments. The Modified
 #' Cragg-Donald test (Modified-CD) corresponds to a test due to Cragg and Donald
-#' (1993), with a critical value modified to make it robust to many instruments
-#' and many exogenous regressors.
-#' @param r object of class \code{RDResults}
+#' (1993), with a modified critical value. The modification was suggested in
+#' Kolesár (2018) to make it robust to many instruments and many exogenous
+#' regressors.
+#' @param r An object of class \code{RDResults}
+#' @examples
+#' r1 <- IVreg(lwage~education+black+married | as.factor(qob), data=ak80,
+#'             inference="standard")
+#' IVoverid(r1)
+#' @references {
+#'
+#' \cite{Kolesár, Michal. Minimum Distance Approach to Inference with Many
+#' Instruments.” Journal of Econometrics 204 (1): 86–100.
+#' \url{https://doi.org/10.1016/j.jeconom.2018.01.004}.}
+#'
+#' \cite{Cragg, John G., and Stephen G. Donald. 1993. "Testing Identifiability
+#' and Specification in Instrumental Variable Models." Econometric Theory 9 (2):
+#' 222–40. \url{https://doi.org/10.1017/S0266466600007519}.}
+#'
+#' \cite{Sargan, John Denis. 1958. "The Estimation of Economic Relationships
+#' Using Instrumental Variables." Econometrica 26 (3): 393–415.
+#' \url{https://doi.org/10.2307/1907619}.}
+#'
+#' }
 #' @export
 IVoverid <- function(r) IVoverid.fit(r$IVData)
 

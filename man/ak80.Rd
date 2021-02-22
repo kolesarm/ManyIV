@@ -3,7 +3,7 @@
 \docType{data}
 \name{ak80}
 \alias{ak80}
-\title{Angrist-Krueger (1991) census data}
+\title{Angrist and Krueger (1991) Census data}
 \format{
 A data frame with 329,509 observations on 10 variables:
 
@@ -19,7 +19,7 @@ A data frame with 329,509 observations on 10 variables:
 
 \item{qob}{Quarter of birth}
 
-\item{sob}{State of birth (FIPS code)}
+\item{sob}{State of birth}
 
 \item{black}{Indicator for being black}
 
@@ -27,7 +27,7 @@ A data frame with 329,509 observations on 10 variables:
 
 \item{yob}{Year of birth}
 
-\item{division}{Factor variable indicating division}
+\item{division}{Census division}
 
 }
 }
@@ -39,6 +39,16 @@ Josh Angrist's website,
 ak80
 }
 \description{
-Sample of males born in the US in 1930-39 from 5% sample of the 1980 Census
+Sample of males born in the US in 1930-39 from 5 percent sample of the 1980
+US Census
+}
+\references{
+{
+
+\cite{Angrist, Joshua D., and Alan B. Krueger. 1991. “Does Compulsory
+School Attendance Affect Schooling and Earnings?” The Quarterly Journal
+of Economics 106 (4): 979–1014. \url{https://doi.org/10.2307/2937954}.}
+
+}
 }
 \keyword{datasets}

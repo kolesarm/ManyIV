@@ -8,7 +8,7 @@ output:
     toc: true
     toc_depth: 2
 vignette: >
-  %\VignetteIndexEntry{Inference with many instruments}
+  %\VignetteIndexEntry{ManyIV}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
@@ -176,19 +176,19 @@ $k$-class estimators given by
 where
 $\hat{\sigma}(\kappa)^{2}=\hat{\epsilon}(\kappa)'\hat{\epsilon}(\kappa)/n$, with
 $\hat{\epsilon}(\kappa)=y-x\hat{\beta}(\kappa)-W'\hat{\delta}(\kappa)$,
-and $\hat{\delta}(\kappa)=(W'W)^{-1}W'(y-x\hat{\beta}(\kappa))$. This
+and $\hat{\delta}(\kappa)=(W' W)^{-1} W'(y-x\hat{\beta}(\kappa))$. This
 includes LIML, for which $\kappa$ is random (Stata disregards that). For OLS,
 we use the Stata 13 variance estimator
 $\hat{\sigma}=\hat{\epsilon}_{OLS}'\hat{\epsilon}_{OLS}/(n-\ell-1)$.
 
 To define the robust standard error estimators, let
-$\hat{R}_{i}=Z_{\perp,i}(Z_{\perp}'Z_{\perp})^{-1}Z_{\perp}x$. Then, for a
+$\hat{R}_{i}=Z_{\perp, i}(Z_{\perp}'Z_{\perp})^{-1}Z_{\perp}x$. Then, for a
 $k$-class estimator (including LIML),
 \begin{equation*}
-  \widehat{var}_{\text{StataR}}(\hat{\beta}(\kappa))
+  \widehat{var}_{\text{Stata, robust}}(\hat{\beta}(\kappa))
   =\frac{\sum_{i=1}^{n}\hat{\epsilon}_{i}(\kappa)^2\hat{R}_{i}^{2}}{n^{2}(T_{22}-m(\kappa)S_{22})^{2}}.
 \end{equation*}
-Note that $\widehat{var}_{\text{StataR}}(\hat{\beta}(\kappa))$ and
+Note that $\widehat{var}_{\text{Stata, robust}}(\hat{\beta}(\kappa))$ and
 $\widehat{var}_{\text{Stata}}(\hat{\beta}(\kappa))$ don't necessarily converge
 to the same quantity even under homoskedasticity. For OLS, we use
 $(n/(n-\ell-1))^{1/2}x_{\perp}$ in place of $\hat{R}_{i}$.
@@ -204,7 +204,7 @@ The first-stage $F$-statistic reported by `IVreg` is given by
 F= \frac{n}{k}\frac{T_{22}}{S_{22}}.
 \end{equation*}
 
-The Sargan test statistic is given by $nm_{\min}/(1-p/n-\ell/n+m_{\min}))$, and
+The Sargan test statistic is given by $n m_{\min}/(1-p/n-\ell/n+m_{\min}))$, and
 its $p$-value is based on a $\chi^{2}_{k-1}$ approximation. The Sargan test
 statistic is based on LIML, unlike in Stata 13's `estat overid`, where it
 depends on what estimator was used to compute $\beta$. The adjusted Cragg-Donald

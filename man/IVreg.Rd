@@ -2,27 +2,27 @@
 % Please edit documentation in R/manyiv.R
 \name{IVreg}
 \alias{IVreg}
-\title{Fit instrumental-variable regression}
+\title{Instrumental Variables Regression}
 \usage{
 IVreg(formula, data, subset, na.action, inference = "standard", approx = TRUE)
 }
 \arguments{
-\item{formula}{specification of the regression relationship and the
+\item{formula}{Specification of the regression relationship and the
 instruments of the form \code{y ~ x + w1 + w2 | z1 + z2 + z3}, where
 \code{y} is the outcome variable, \code{x} is a scalar endogenous
-variable, \code{w1,w2} are exogenous regressors, and \code{z1,z2,z3} are
-excluded instruments.}
+variable, \code{w1}, \code{w2} are exogenous regressors, and \code{z1},
+\code{z2}, and \code{z3} are excluded instruments.}
 
-\item{data}{optional data frame, list or environment (or object coercible by
-\code{as.data.frame} to a data frame) containing the outcome and running
-variables in the model. If not found in \code{data}, the variables are
-taken from \code{environment(formula)}, typically the environment from
-which the function is called.}
+\item{data}{An optional data frame, list or environment (or object coercible
+by \code{as.data.frame} to a data frame) containing the variables in the
+model. If not found in \code{data}, the variables are taken from
+\code{environment(formula)}, typically the environment from which the
+function is called.}
 
-\item{subset}{optional vector specifying a subset of observations to be used
-in the fitting process.}
+\item{subset}{An optional vector specifying a subset of observations to be
+used in the fitting process.}
 
-\item{na.action}{function which indicates what should happen when the data
+\item{na.action}{A function indicating what should happen when the data
 contain \code{NA}s. The default is set by the \code{na.action} setting of
 \code{options} (usually \code{na.omit}).}
 
@@ -30,36 +30,85 @@ contain \code{NA}s. The default is set by the \code{na.action} setting of
     the vector can consist of the following methods:
 \describe{
 
-  \item{"standard"}{Report inference based on TSLS, LIML, and MBTSLS, along
-                    with homoskedastic and heteroskedasticity-robust standard
-                    errors valid under standard asymptotic sequence, as well
-                    as standard errors that are valid under
-                    heteroskedasticity and treatment effect heterogeneity.}
+  \item{\code{"standard"}}{Report inference based on TSLS, LIML, and MBTSLS,
+               along with homoskedastic and heteroskedasticity-robust
+               standard errors, standard errors that are valid under
+               heteroskedasticity and treatment effect heterogeneity. All
+               three standard errors are valid under standard asymptotics
+               only.}
 
-  \item{"re"}{Inference based on Hessian of random effects likelihood}
+  \item{\code{"re"}}{Report standard errors for LIML based on Hessian of
+               random effects likelihood}
 
-  \item{"il"}{Inference based on Hessian of invariant likelihood, evaluated
-              numerically}
+  \item{\code{"il"}}{Report standard errors for LIML based on Hessian of
+               invariant likelihood, evaluated numerically}
 
-  \item{"lil"}{Inference based on information matrix of limited
-              information likelihood}
+  \item{\code{"lil"}}{Report standard errors for LIML based on the
+               information matrix of limited information likelihood}
 
-  \item{"md"}{Inference based on the minimum distance objective function} }}
+  \item{\code{"md"}}{Compute the EMD, LIML, and MBTSLS estimators, and report
+               standard errors for LIML, MBTSLS, and EMD based on the minimum
+               distance objective function proposed in Kolesár (2018)}
+
+}
+See the vignette \code{vignette("ManyIV", package = "ManyIV")} for a detailed
+description of these methods.}
 
 \item{approx}{if \code{TRUE}, then estimates of third and fourth moments used
 in inference based on the minimum distance objective function
-(\code{inference="md"}) use an approximation to speed up the
+(\code{inference="md"}) are based on an approximation to speed up the
 calculations.}
 }
+\value{
+An object of class \code{"IVResults"}, which is a list with the
+    following components:
+
+\describe{
+
+\item{IVData}{An object of class \code{"IVData"}, which is a list with at
+   least the following components:
+
+   \describe{
+   \item{Z}{Matrix of instruments}
+   \item{Y}{Matrix with two columns collecting the endogenous variables}
+   \item{W}{Matrix of exogenous regressors}
+
+   \item{n}{Number of observations used, the number of rows of \code{Z},
+        \code{W}, or \code{Yp}}
+
+   \item{l}{Dimension of the exogenous regressors, the number of columns of
+         \code{W}}
+
+   \item{k}{Dimension of the instruments, the number of columns of \code{Z}}
+
+   \item{F}{First-stage \eqn{F} statistic}
+
+    }
+
+}
+
+\item{call}{The matched call.}
+
+\item{estimate}{A data frame containing the estimation results.}
+}
+
+The \code{print} function can be used to print a summary of the results.
+}
 \description{
-Fit instrumental-variable regression
+Fit instrumental variables regression by a number of methods, and compute
+associated standard errors, as specified by \code{inference}
 }
 \examples{
-## Specification as in Table V, columns (1) and (2) in Angrist and Krueger
-IVreg(lwage~education+as.factor(yob)|as.factor(qob)*as.factor(yob),
+## Use quarter of birth as an instrument for education, controlling for
+## marriage and black indicators
+IVreg(lwage~education+black+married | as.factor(qob),
            data=ak80, inference=c("standard", "re", "il", "lil"))
-## Only quarter of birth as instrument, add married, black and smsa as
-## exogenous regressors
-IVreg(lwage~education+as.factor(yob)+black+smsa+married|as.factor(qob),
-           data=ak80, inference=c("standard", "re", "il", "lil"))
+}
+\references{
+{
+
+\cite{Kolesár, Michal. Minimum Distance Approach to Inference with Many
+Instruments.” Journal of Econometrics 204 (1): 86–100.}
+
+}
 }

@@ -1,7 +1,7 @@
-#' Angrist-Krueger (1991) census data
+#' Angrist and Krueger (1991) Census data
 #'
-#'
-#' Sample of males born in the US in 1930-39 from 5% sample of the 1980 Census
+#' Sample of males born in the US in 1930-39 from 5 percent sample of the 1980
+#' US Census
 #' @format A data frame with 329,509 observations on 10 variables:
 #'
 #' \describe{
@@ -16,7 +16,7 @@
 #'
 #' \item{qob}{Quarter of birth}
 #'
-#' \item{sob}{State of birth (FIPS code)}
+#' \item{sob}{State of birth}
 #'
 #' \item{black}{Indicator for being black}
 #'
@@ -24,9 +24,16 @@
 #'
 #' \item{yob}{Year of birth}
 #'
-#' \item{division}{Factor variable indicating division}
+#' \item{division}{Census division}
 #'
 #' }
 #' @source Josh Angrist's website,
 #'     \url{http://economics.mit.edu/faculty/angrist/data1/data/angkru1991}
+#' @references{
+#'
+#' \cite{Angrist, Joshua D., and Alan B. Krueger. 1991. “Does Compulsory
+#' School Attendance Affect Schooling and Earnings?” The Quarterly Journal
+#' of Economics 106 (4): 979–1014. \url{https://doi.org/10.2307/2937954}.}
+#'
+#' }
 "ak80"
