@@ -1,5 +1,14 @@
 context("Likelihood-based inference")
 
+test_that("Test random effects likelihood", {
+    r1 <- IVreg(lwage~education+as.factor(yob) | qob*as.factor(yob),
+                data=ak80, inference=c("re", "lil", "il"))
+
+    expect_equal(unname(unlist(r1$estimate["liml", ])),
+                 c(0.09287641, 0.01615828, 0.01986003, 0.01978592))
+
+})
+
 test_that("Test Invariant likelihood", {
     ## Old cover for invariant likelihood
     r1 <- IVreg(lwage~education+as.factor(yob)|as.factor(qob)*as.factor(yob),
@@ -37,4 +46,13 @@ test_that("Test Invariant likelihood", {
     expect_true(IVregIL.fit(r1$IVData)$lik-IVregILold.fit(r1$IVData)$lik>0)
     expect_true(IVregIL.fit(r3$IVData)$lik-IVregILold.fit(r3$IVData)$lik>0)
 
+})
+
+test_that("Overid test", {
+    r1 <- IVreg(lwage~education | qob=="Q1", data=ak80, inference="il")
+    expect_equal(IVoverid(r1),
+                 data.frame(statistic=c("Sargan"=NA, "Modified-CD"=NA),
+                            p.value=as.numeric(c(NA, NA))))
+    r2 <- IVreg(lwage~education | qob, data=ak80, inference="il")
+    expect_equal(IVoverid(r2)$p.value, c(0.24119662, 0.241200997))
 })

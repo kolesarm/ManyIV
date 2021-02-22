@@ -33,7 +33,7 @@
 #'
 #' \cite{Angrist, Joshua D., and Alan B. Krueger. 1991. “Does Compulsory
 #' School Attendance Affect Schooling and Earnings?” The Quarterly Journal
-#' of Economics 106 (4): 979–1014. \url{https://doi.org/10.2307/2937954}.}
+#' of Economics 106 (4): 979–1014. \doi{10.2307/2937954}.}
 #'
 #' }
 "ak80"

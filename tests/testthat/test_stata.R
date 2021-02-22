@@ -6,9 +6,8 @@ test_that("Match stata on AK data", {
     ## Table II
     r0 <- IVreg(lwage~education | qob=="Q1", data=ak80, inference="standard",
                subset=division=="Pacific")
-    r1 <- IVreg(ak80$lwage~ak80$education | ak80$qob=="Q1", data=ak80,
-               inference="standard",
-               subset=ak80$division=="Pacific")
+    r1 <- IVreg(ak80$lwage~ak80$education | ak80$qob=="Q1",
+                inference="standard", subset=ak80$division=="Pacific")
     expect_identical(r1$estimate, r0$estimate)
     ## LIML vs TSLS
     expect_equal(unlist(r0$estimate[2, 1:3]),

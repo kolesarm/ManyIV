@@ -10,13 +10,13 @@ IVoverid(r)
 \item{r}{An object of class \code{RDResults}}
 }
 \description{
-Report the Sargan and modified Cragg-Donal test statistics and \eqn{p}-values
-for testing of overidentifying restrictions, assuming homoskedasticity of the
-reduced form. The Sargan test is valid under few instruments. The Modified
-Cragg-Donald test (Modified-CD) corresponds to a test due to Cragg and Donald
-(1993), with a modified critical value. The modification was suggested in
-Kolesár (2018) to make it robust to many instruments and many exogenous
-regressors.
+Report the Sargan and modified Cragg-Donald test statistics and
+\eqn{p}-values for testing of overidentifying restrictions, assuming
+homoskedasticity of the reduced form. The Sargan test is valid under few
+instruments. The Modified Cragg-Donald test (Modified-CD) corresponds to a
+test due to Cragg and Donald (1993), with a modified critical value. The
+modification was suggested in Kolesár (2018) to make it robust to many
+instruments and many exogenous regressors.
 }
 \examples{
 r1 <- IVreg(lwage~education+black+married | as.factor(qob), data=ak80,
@@ -28,15 +28,15 @@ IVoverid(r1)
 
 \cite{Kolesár, Michal. Minimum Distance Approach to Inference with Many
 Instruments.” Journal of Econometrics 204 (1): 86–100.
-\url{https://doi.org/10.1016/j.jeconom.2018.01.004}.}
+\doi{10.1016/j.jeconom.2018.01.004}.}
 
 \cite{Cragg, John G., and Stephen G. Donald. 1993. "Testing Identifiability
 and Specification in Instrumental Variable Models." Econometric Theory 9 (2):
-222–40. \url{https://doi.org/10.1017/S0266466600007519}.}
+222–40. \doi{10.1017/S0266466600007519}.}
 
 \cite{Sargan, John Denis. 1958. "The Estimation of Economic Relationships
 Using Instrumental Variables." Econometrica 26 (3): 393–415.
-\url{https://doi.org/10.2307/1907619}.}
+\doi{10.2307/1907619}.}
 
 }
 }
