@@ -3,3 +3,4 @@
 S3method(print,IVResults)
 export(IVoverid)
 export(IVreg)
+export(ujive)

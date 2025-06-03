@@ -1,12 +1,18 @@
 ---
-title: "Inference with Many Instruments"
-author: "Michal Kolesár"
-date: "`r Sys.Date()`"
-bibliography: many-iv-library.bib
 output:
   pdf_document:
+    citation_package: natbib
+    latex_engine: pdflatex
     toc: true
     toc_depth: 2
+    keep_tex: true
+title: "Inference with Many Instruments"
+author: "Michal Kolesár"
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+geometry: margin=1in
+fontfamily: mathpazo
+bibliography: many-iv-library.bib
+fontsize: 11pt
 vignette: >
   %\VignetteIndexEntry{ManyIV}
   %\VignetteEngine{knitr::rmarkdown}
@@ -86,7 +92,7 @@ Several of these options may be specified at once:
 library("ManyIV")
 ## Specification as in Table V, columns (1) and (2) in Angrist and Krueger
 IVreg(lwage~education+as.factor(yob)|as.factor(qob)*as.factor(yob),
-            data=ak80, inference=c("standard", "re", "il", "lil"))
+      data=ak80, inference=c("standard", "re", "il", "lil"))
 ```
 
 With large data, the `md` standard errors may take a while to run, as they

@@ -5,7 +5,7 @@ test_that("Match stata on AK data", {
 
     ## Table II
     r0 <- IVreg(lwage~education | qob=="Q1", data=ak80, inference="standard",
-               subset=division=="Pacific")
+                subset=division=="Pacific")
     r1 <- IVreg(ak80$lwage~ak80$education | ak80$qob=="Q1",
                 inference="standard", subset=ak80$division=="Pacific")
     expect_identical(r1$estimate, r0$estimate)
@@ -62,7 +62,7 @@ test_that("Match stata on AK data", {
                  c(0.0673389705, 0.0003464258, 0.0003883466))
     expect_equal(as.numeric(r3$estimate["mbtsls", 1:3]),
                  c(0.1089429483, 0.0120411994, 0.0159979308))
-    expect_equal(r0[11],
+    expect_equal(r0[10],
                  "liml    0.10640    0.0116384      0.0149804         NA")
 
 })

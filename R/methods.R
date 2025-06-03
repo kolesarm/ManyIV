@@ -3,7 +3,7 @@ print.IVResults <- function(x, digits = getOption("digits"), ...) {
     if (!is.null(x$call))
         cat("Call:\n", deparse(x$call), sep = "", fill=TRUE)
 
-    r <- x$estimate[!is.na(x$estimate$beta), ]
+    r <- x$estimate[!is.na(x$estimate$estimate), ]
     colnames(r) <- c("Estimate", colnames(r)[-1])
 
     if ("se" %in% colnames(r))

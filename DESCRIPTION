@@ -1,6 +1,6 @@
 Package: ManyIV
 Title: Inference in Instrumental Variables Models with Many Instruments
-Version: 0.0.2
+Version: 0.0.2.9000
 Authors@R: c(person(given = "Michal",
                   family = "Kolesár",
                   role = c("aut", "cre"),
@@ -9,7 +9,7 @@ Authors@R: c(person(given = "Michal",
 Description: Calculate estimators and standard errors in a linear instrumental
     variables model with possibly many instruments and many exogenous regressors
     under homoskedasticity of the reduced form, using methods developed in
-    Kolesár (2018 <doi:10.1016/j.jeconom.2018.01.004>. Also computes tests of
+    Kolesár (2018) <doi:10.1016/j.jeconom.2018.01.004>. Also computes tests of
     overidentifying restrictions.
 Depends:
     R (>= 4.0.0)
@@ -21,7 +21,7 @@ Imports:
     stats,
     Formula,
     numDeriv
-RoxygenNote: 7.1.1
+RoxygenNote: 7.3.2
 Suggests:
     spelling,
     testthat,

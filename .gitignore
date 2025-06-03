@@ -3,3 +3,5 @@ vignettes/auto/
 *.el
 Meta
 notes.org
+/Meta/
+/doc/

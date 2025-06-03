@@ -3,7 +3,8 @@
 ## Then unrar to get .dta file
 
 ## Note v17: sob (FIPS code)
-ak <- readstata13::read.dta13("~/teaching/Datasets/AngristKrueger1991/NEW7080.dta")
+dir <- "~/teaching/Datasets/AngristKrueger1991/NEW7080.dta"
+ak <- readstata13::read.dta13(dir)
 
 names(ak) <- c("v1", "age", "v3", "education", "enocent", "esocent", "v7", "v8",
                "lwage", "married", "midatl", "mt", "neweng", "v14", "pacific",
@@ -11,7 +12,8 @@ names(ak) <- c("v1", "age", "v3", "education", "enocent", "esocent", "v7", "v8",
                "wnocent", "wsocent", "v26", "yob")
 ## Clean up divisions
 ak$division <- factor(ak$neweng + 2*ak$midatl + 3*ak$enocent + 4*ak$wnocent +
-                      5*ak$soatl+ 6*ak$esocent + 7*ak$wsocent + 8*ak$mt + 9*ak$pacific,
+                          5*ak$soatl+ 6*ak$esocent + 7*ak$wsocent +
+                          8*ak$mt + 9*ak$pacific,
                       levels=as.character(1:9),
                       labels=c("New England", "Mid Atlantic", "E N Central",
                                "W N Central", "S Atlantic", "E S Central",
@@ -35,14 +37,14 @@ ak80 <- data.frame(ak[ak$census==80 & ak$yob<=1939 & ak$yob>=1930, ])
 ## 52 "Virgin Islands"
 ## 57 "Pacific coast"
 ## 99
-ak80$sob <- factor(ak80$sob,
-              levels=as.character(sort(unique(ak80$sob))),
-              labels=c("AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "DC",
-                       "FL", "GA", "HI", "ID", "IL", "IN", "IA",  "KS", "KY",
-                       "LA", "ME", "MD", "MA", "MI", "MN", "MS", "MO", "MT",
-                       "NE", "NV", "NH", "NJ", "NM", "NY", "NC", "ND", "OH",
-                       "OK", "OR", "PA", "RI", "SC", "SD", "TN", "TX", "UT",
-                       "VT", "VA", "WA", "WV", "WI", "WY"))
+ak80$sob <- factor(ak80$sob, levels=as.character(sort(unique(ak80$sob))),
+                   labels=c("AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE",
+                            "DC", "FL", "GA", "HI", "ID", "IL", "IN", "IA",
+                            "KS", "KY", "LA", "ME", "MD", "MA", "MI", "MN",
+                            "MS", "MO", "MT", "NE", "NV", "NH", "NJ", "NM",
+                            "NY", "NC", "ND", "OH", "OK", "OR", "PA", "RI",
+                            "SC", "SD", "TN", "TX", "UT", "VT", "VA", "WA",
+                            "WV", "WI", "WY"))
 ## Keep 1980 census, 1930-1939 cohort, 329,509 observations
 ak80 <- ak80[, c("age", "education", "lwage", "married", "qob", "sob",
                  "black", "smsa", "yob", "division")]

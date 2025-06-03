@@ -20,8 +20,9 @@ N2 <- rbind(c(1, 0, 0, 0), c(0, 1/2, 1/2, 0), c(0, 1/2, 1/2, 0),
 ## @param approx if \code{TRUE}, then estimates of third and fourth moments use
 ##     an approximation to speed up the calculations.
 IVData <- function(Y, X, Z, W, moments=TRUE, approx=TRUE) {
-    ols <- function(X, Y)
+    ols <- function(X, Y) {
         Matrix::solve(Matrix::crossprod(X), Matrix::crossprod(X, Y))
+    }
     d <- list(l=W@Dim[2], k=Z@Dim[2], n=Z@Dim[1], Z=Z, W=W,
               Y=cbind(Y, X))
     Zt <- if (d$l==0) Z else (Z-W %*% ols(W, Z))
@@ -35,12 +36,13 @@ IVData <- function(Y, X, Z, W, moments=TRUE, approx=TRUE) {
     d$T <- as.matrix(Matrix::crossprod(d$Yhatp) / d$n)
     d$ei <- sort(eigen(solve(d$S, d$T))$values) # [m_min, m_max]
 
-    d$F <- d$T[2, 2]/(d$k/d$n*d$S[2, 2])              # first-stage F
+    d$F <- d$T[2, 2] / (d$k/d$n*d$S[2, 2])              # first-stage F
 
-    if(moments) {
-        diagP <- function(x)
-            Matrix::colSums(Matrix::t(x) *
-                            Matrix::solve(Matrix::crossprod(x), Matrix::t(x)))
+    if (moments) {
+        diagP <- function(x) {
+            Matrix::colSums(Matrix::t(x) * Matrix::solve(Matrix::crossprod(x),
+                                                         Matrix::t(x)))
+        }
         diagPX <- diagP(X)
         d$m2 <- sum((1-diagPX)^2)
 
@@ -48,20 +50,20 @@ IVData <- function(Y, X, Z, W, moments=TRUE, approx=TRUE) {
         Hj <- function(j, p) sum((X[j, ] %*% XX)^p)
 
         ## Split computation into s parts
-        s <- max((d$n*(d$k+d$l)) %/% 1e5, 1)
-        ix <- cbind((d$n%/%s)*(0:(s-1))+1, (d$n%/%s)*(1:s))
+        s <- max((d$n * (d$k+d$l)) %/% 1e5, 1)
+        ix <- cbind((d$n%/%s) * (0:(s-1))+1, (d$n%/%s) * (1:s))
         if ((d$n %% s) > 0)
             ix <- rbind(ix, c((d$n%/%s)*s, d$n))
 
         if (approx) {
-            d$m3 <- d$n-3*(d$k+d$l)
-            d$m4 <- d$n-4*(d$k+d$l)
+            d$m3 <- d$n - 3 * (d$k+d$l)
+            d$m4 <- d$n - 4 * (d$k+d$l)
         } else {
             m3 <- sum(vapply(seq_len(s),
                              function(j) Hj(ix[j, 1]:ix[j, 2], 3), numeric(1)))
             d$m3 <- sum((1-diagPX)^3)+sum(diagPX^3)-m3
             m4 <- sum(vapply(seq_len(s),
-                 function(j) Hj(ix[j, 1]:ix[j, 2], 4), numeric(1)))
+                             function(j) Hj(ix[j, 1]:ix[j, 2], 4), numeric(1)))
             d$m4 <- sum((1-diagPX)^4)+m4-sum(diagPX^4)
         }
 
@@ -77,8 +79,9 @@ IVData <- function(Y, X, Z, W, moments=TRUE, approx=TRUE) {
                         c(d$Psi4[2], d$Psi4[3], d$Psi4[3], d$Psi4[4]),
                         c(d$Psi4[2], d$Psi4[3], d$Psi4[3], d$Psi4[4]),
                         c(d$Psi4[3], d$Psi4[4], d$Psi4[4], d$Psi4[5]))
-        d$Psi4 <- (d$Psi4 - (d$m2-d$m4) * (2*N2 %*% kronecker(d$S, d$S)+
-                                           tcrossprod(as.vector(d$S)))) / d$m4
+        d$Psi4 <- (d$Psi4 - (d$m2-d$m4) *
+                       (2*N2 %*% kronecker(d$S, d$S)+
+                            tcrossprod(as.vector(d$S)))) / d$m4
 
         ## Diagonal of H
         h <- diagP(Zt)-d$k/d$nu * (1-diagPX)
@@ -187,7 +190,7 @@ IVData <- function(Y, X, Z, W, moments=TRUE, approx=TRUE) {
 #'            data=ak80, inference=c("standard", "re", "il", "lil"))
 #' @export
 IVreg <- function(formula, data, subset, na.action, inference="standard",
-                   approx=TRUE) {
+                  approx=TRUE) {
     cl <- mf <- match.call(expand.dots = FALSE)
     if (missing(data))
         data <- environment(formula)
@@ -211,56 +214,56 @@ IVreg <- function(formula, data, subset, na.action, inference="standard",
     ## Remove intercept
     Z <- Matrix::Matrix(Z[, !colnames(Z) %in% colnames(W), drop=FALSE])
 
-    d <- IVData(Y, X, Z, W, moments=("md" %in% inference), approx=approx)
+    d <- IVData(Y, X, Z, W, moments = ("md" %in% inference), approx=approx)
 
     structure(list(IVData=d, call=cl,
-                   estimate=IVreg.fit(d, inference=inference)),
+                   estimate=ivreg.fit(d, inference=inference)),
               class="IVResults")
 }
 
 ## Low-level computing engine called by \code{IVreg}
 ## @param d Object of class \code{"IVData"}
 ## @return A data frame containing the estimation results.
-IVreg.fit <- function(d, inference) {
+ivreg.fit <- function(d, inference) {
     est <- data.frame(row.names=c("ols", "tsls", "liml", "mbtsls", "emd"))
 
     if ("standard" %in% inference) {
-        r <- IVregSI.fit(d)
-        est[-5, "beta"] <- r$beta
+        r <- si.fit(d)
+        est[-5, "estimate"] <- r$estimate
         est[-5, "se"] <- r$se
         est[-5, "ser"] <- r$ser
         est[-5, "seh"] <- r$seh
     }
 
     if ("lil" %in% inference) {
-        r <- IVregLI.fit(d)
-        est["liml", "beta"] <- r$beta
+        r <- li.fit(d)
+        est["liml", "estimate"] <- r$estimate
         est["liml", "lil"] <- r$se
     }
 
     if ("re" %in% inference) {
-        r <- IVregRE.fit(d)
-        est["liml", "beta"] <- r$beta
+        r <- re.fit(d)
+        est["liml", "estimate"] <- r$estimate
         est["liml", "re"] <- r$se
     }
 
     if ("il" %in% inference) {
-        r <- IVregIL.fit(d)
-        est["liml", "beta"] <- r$beta
+        r <- il.fit(d)
+        est["liml", "estimate"] <- r$estimate
         est["liml", "il"] <- r$se
     }
 
     if ("md" %in% inference) {
-        r <- IVregMD.fit(d, weight="LIML")
-        est["liml", "beta"] <- r$beta
+        r <- md.fit(d, weight="LIML")
+        est["liml", "estimate"] <- r$estimate
         est["liml", "md"] <- r$se
-        r <- IVregMD.fit(d, weight="Optimal")
-        est["emd", "beta"] <- r$beta
+        r <- md.fit(d, weight="Optimal")
+        est["emd", "estimate"] <- r$estimate
         est["emd", "md"] <- r$se
-        r <- IVregUMD.fit(d, invalid=FALSE)
-        est["mbtsls", "beta"] <- r$beta
+        r <- umd.fit(d, invalid=FALSE)
+        est["mbtsls", "estimate"] <- r$estimate
         est["mbtsls", "md"] <- r$se
-        est["mbtsls", "umd"] <- IVregUMD.fit(d, invalid=TRUE)$se
+        est["mbtsls", "umd"] <- umd.fit(d, invalid=TRUE)$se
     }
 
     est
@@ -296,24 +299,23 @@ IVreg.fit <- function(d, inference) {
 #'
 #' }
 #' @export
-IVoverid <- function(r) IVoverid.fit(r$IVData)
+IVoverid <- function(r) ivoverid.fit(r$IVData)
 
-
-IVoverid.fit <- function(d) {
+ivoverid.fit <- function(d) {
     if (!("Psi4" %in% names(d)))
         d <- IVData(d$Y[, 1], d$Y[, 2], d$Z, d$W, moments=TRUE)
 
     ## Sargan and Cragg-Donald
-    overid <- if (d$k==1) {
-                  c(NA, NA)
-              } else {
-                  c(d$n*d$ei[1]/(d$nu/d$n+d$ei[1]), d$n*d$ei[1])
-              }
+    if (d$k==1) {
+        overid <- c(NA, NA)
+    } else {
+        overid <- c(d$n*d$ei[1] / (d$nu/d$n+d$ei[1]), d$n*d$ei[1])
+    }
 
-    r1 <- IVregRE.fit(d)
-    a <- c(r1$beta, 1)
+    r1 <- re.fit(d)
+    a <- c(r1$estimate, 1)
     kap <- drop(crossprod(kronecker(a, a), d$Psi4 %*% kronecker(a, a))) /
-        bob(r1$beta, r1$Om)^2 - 3
+        bob(r1$estimate, r1$Om)^2 - 3
     rr <- (d$n-d$l)/d$nu+d$delta*kap/2
     p.value <- c(1 - stats::pchisq(overid[1], d$k-1),
                  1-stats::pnorm(stats::qnorm(stats::pchisq(overid[2],
@@ -323,7 +325,7 @@ IVoverid.fit <- function(d) {
 }
 
 
-IVregSI.fit <- function(d) {
+si.fit <- function(d) {
     ## 1. Estimates of beta
     mkap <- c(-d$nu/d$n, 0, d$ei[1], d$k/d$n)   # m(kappa)
     be.den <- function(m) d$T[2, 2]-m*d$S[2, 2] # denominator
@@ -334,8 +336,8 @@ IVregSI.fit <- function(d) {
     he <- function(be) d$Yt[, 1]- d$Yt[, 2]*be
     hat.sig <- function(be) drop(crossprod(he(be))) / d$n
     se <- sqrt(vapply(be, hat.sig, numeric(1)) /
-               (d$n*pmax(be.den(mkap), 0)))
-    sm <- d$n/(d$n - d$l-1) # Small-sample adjustment for OLS only
+                   (d$n*pmax(be.den(mkap), 0)))
+    sm <- d$n / (d$n - d$l-1) # Small-sample adjustment for OLS only
     se[1] <- se[1]*sqrt(sm)
 
     ## 3. Stata robust standard errors
@@ -344,28 +346,30 @@ IVregSI.fit <- function(d) {
     ser <- sqrt(c(drop(crossprod(d$Yt[, 2]*he(be[1])))*sm, num)) /
         pmax(d$n*pmax(be.den(mkap), 0))
     ## 4. Standard errors under TE heteroegeneity
-    num <- function(j) sum((d$Yhatp[, 2]*he(be[j])+
-        (d$Yhatp[, 1]-d$Yhatp[, 2]*be[j])*(d$Yt[, 2]-d$Yhatp[, 2]))^2)
+    num <- function(j) {
+        sum((d$Yhatp[, 2]*he(be[j])+ (d$Yhatp[, 1]-d$Yhatp[, 2]*be[j]) *
+                 (d$Yt[, 2]-d$Yhatp[, 2]))^2)
+    }
     seh <- sqrt(c(NA, num(2), NA, num(4)))/pmax(d$n*pmax(be.den(mkap), 0))
 
     names(be) <- names(se) <- names(ser) <- names(seh) <-
         c("ols", "tsls", "liml", "mbtsls")
-    list(beta=be, se=se, ser=ser, seh=seh, lam=NA, Om=d$S)
+    list(estimate=be, se=se, ser=ser, seh=seh, lam=NA, Om=d$S)
 }
 
 
 MDDelta <- function(be, Om, Xi22, d, Gaussian=FALSE, invalid=FALSE) {
-    tau <- (d$k/d$n) * (d$n-d$l)/(d$n-d$k-d$l)
+    tau <- (d$k/d$n) * (d$n-d$l) / (d$n-d$k-d$l)
 
-    Xim <- if (invalid) (d$T-(d$k/d$n)*d$S) else (Xi22*c(be, 1) %o% c(be, 1))
+    Xim <- if (invalid) (d$T - (d$k/d$n)*d$S) else (Xi22*c(be, 1) %o% c(be, 1))
     D1 <- 2*N2 %*%  (kronecker(Xim, Om) + kronecker(Om, Xim) +
-                     tau*kronecker(Om, Om))
+                         tau*kronecker(Om, Om))
 
     if (Gaussian) {
         D2 <- D3 <- matrix(0, nrow=4, ncol=4)
     } else {
-        D2 <- (d$k/d$n)*d$delta*(d$Psi4 - as.vector(Om) %o% as.vector(Om) -
-                                     2*N2%*%kronecker(Om, Om))
+        D2 <- (d$k/d$n) * d$delta * (d$Psi4 - as.vector(Om) %o% as.vector(Om) -
+                                         2*N2%*%kronecker(Om, Om))
         mu1 <- if (invalid) d$mu1 else be*d$mu
         D3 <- 2*sqrt(d$k/d$n) * N2 %*% kronecker(t(d$Psi3), c(mu1, d$mu))
     }
@@ -375,38 +379,41 @@ MDDelta <- function(be, Om, Xi22, d, Gaussian=FALSE, invalid=FALSE) {
 
 
 ## Minimum distance
-IVregMD.fit <- function(d, weight="Optimal") {
+md.fit <- function(d, weight="Optimal") {
 
     ## LIML standard error
-    r1 <- IVregRE.fit(d)
-    Xi.re <- r1$lam / aoa(r1$beta, r1$Om)
-    Del <-  MDDelta(r1$beta, r1$Om, Xi.re, d)
-    a.re <- c(r1$beta, 1)
+    r1 <- re.fit(d)
+    Xi <- r1$lam / aoa(r1$estimate, r1$Om)
+    Del <-  MDDelta(r1$estimate, r1$Om, Xi, d)
+    a.re <- c(r1$estimate, 1)
 
-    G <- L2 %*% cbind(Xi.re*(kronecker(a.re, c(1, 0)) +
-                             kronecker(c(1, 0), a.re)), kronecker(a.re, a.re))
+    G <- L2 %*% cbind(Xi * (kronecker(a.re, c(1, 0)) +
+                                kronecker(c(1, 0), a.re)),
+                      kronecker(a.re, a.re))
     Wm <- crossprod(D2, kronecker(solve(r1$Om), solve(r1$Om)) %*% D2)
     iGWG <- solve(crossprod(G, Wm %*% G))
 
     if (weight=="LIML") {
         se <- (iGWG %*% crossprod(G, Wm%*%Del%*%Wm %*% G) %*% iGWG)[1, 1]
-        return(list(beta=r1$beta, se=sqrt(se/d$n), lam=r1$lam, Om=r1$Om))
+        return(list(estimate=r1$estimate, se=sqrt(se/d$n), lam=r1$lam,
+                    Om=r1$Om))
     }
 
     obj <- function(be, Xi) {
         r <- drop(L2%*%as.vector(d$T-d$k/d$n*d$S-Xi*c(be, 1) %o% c(be, 1)))
         sum(r*solve(Del, r))
     }
-    start <- c(r1$beta, Xi.re)
+    start <- c(r1$estimate, Xi)
     r2 <- stats::optim(start, function(t) obj(t[1], t[2]), method="BFGS")
     se2 <- solve(crossprod(G, solve(Del, G)))[1, 1]
 
-    list(beta=r2$par[1], se=sqrt(se2/d$n), lam=r2$par[2]*aoa(r2$par[1], r1$Om),
+    list(estimate=r2$par[1], se=sqrt(se2/d$n),
+         lam=r2$par[2]*aoa(r2$par[1], r1$Om),
          Om=r1$Om)
 }
 
 ## Unrestricted minimum distance
-IVregUMD.fit <- function(d, invalid=TRUE) {
+umd.fit <- function(d, invalid=TRUE) {
     Xi <- d$T - (d$k/d$n)*d$S
     be <- Xi[1, 2] / Xi[2, 2]
     Om <- d$S
@@ -415,5 +422,5 @@ IVregUMD.fit <- function(d, invalid=TRUE) {
     se <- drop(crossprod(G, MDDelta(be, Om, Xi[2, 2], d,
                                     invalid=invalid) %*% G))
 
-    list(beta=be, se=sqrt(se/d$n), lam=Xi[2, 2]*aoa(be, Om), Om=Om)
+    list(estimate=be, se=sqrt(se/d$n), lam=Xi[2, 2]*aoa(be, Om), Om=Om)
 }
