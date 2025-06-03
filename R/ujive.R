@@ -1,4 +1,22 @@
 #' Jackknife Instrumental variables regression
+#'
+#' TODO: full description
+#' @param formula Specification of the regression relationship and the
+#'     instruments of the form \code{y ~ x + w1 + w2 | z1 + z2 + z3}, where
+#'     \code{y} is the outcome variable, \code{x} is a scalar endogenous
+#'     variable, \code{w1}, \code{w2} are exogenous regressors, and \code{z1},
+#'     \code{z2}, and \code{z3} are excluded instruments.
+#' @param data An optional data frame, list or environment (or object coercible
+#'     by \code{as.data.frame} to a data frame) containing the variables in the
+#'     model. If not found in \code{data}, the variables are taken from
+#'     \code{environment(formula)}, typically the environment from which the
+#'     function is called.
+#' @param subset An optional vector specifying a subset of observations to be
+#'     used in the fitting process.
+#' @param na.action A function indicating what should happen when the data
+#'     contain \code{NA}s. The default is set by the \code{na.action} setting of
+#'     \code{options} (usually \code{na.omit}).
+#' @return An object of class \code{"IVResults"}.
 #' @export
 ujive <- function(formula, data, subset, na.action) {
     cl <- mf <- match.call(expand.dots = FALSE)
