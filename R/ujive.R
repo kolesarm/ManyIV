@@ -44,7 +44,7 @@ ujive <- function(formula, data, subset, na.action) {
 
     d <- IVData(Y, X, Z, W, moments=FALSE)
 
-    structure(list(IVData=d, call=cl, estimate=ujive.fit(d)),
+    structure(list(IVData=d, call=cl, estimate=as.data.frame(ujive.fit(d))),
               class="IVResults")
 }
 
