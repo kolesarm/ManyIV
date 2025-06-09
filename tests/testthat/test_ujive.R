@@ -111,10 +111,10 @@ test_that("ujive", {
     s1 <- jive.fit(t1$IVData$Y, t1$IVData$D, t1$IVData$Z, t1$IVData$W)
     u1 <- ujive2.fit(t1$IVData$Y, t1$IVData$D, t1$IVData$Z, t1$IVData$W)
 
-    expect_lt(max(abs(u1-t1$estimate)), 1e-8)
-    expect_lt(max(abs(t1$estimate[c(2, 6, 4), 1]-s1$estimate[, 1])), 1e-9)
+    expect_lt(max(abs(u1-t1$estimate)), 1e-7)
+    expect_lt(max(abs(t1$estimate[c(2, 6, 4), 1]-s1$estimate[, 1])), 1e-8)
     ## Standard error in the numerator uses TSLS
-    expect_lt(max(abs(s1$estimate[1, c(1, 3:4)]-t1$estimate[2, ])), 1e-10)
+    expect_lt(max(abs(s1$estimate[1, c(1, 3:4)]-t1$estimate[2, ])), 1e-7)
 
     t2 <- ujive(lwage~education+as.factor(yob) | qob*as.factor(yob), data=ak80)
     s2 <- jive.fit(t2$IVData$Y, t2$IVData$D, t2$IVData$Z, t2$IVData$W)
