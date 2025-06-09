@@ -4,7 +4,7 @@
 \alias{ujive}
 \title{Jackknife Instrumental variables regression}
 \usage{
-ujive(formula, data, subset, na.action)
+ujive(formula, data, subset, na.action, tol = 1e-08)
 }
 \arguments{
 \item{formula}{Specification of the regression relationship and the
@@ -25,6 +25,9 @@ used in the fitting process.}
 \item{na.action}{A function indicating what should happen when the data
 contain \code{NA}s. The default is set by the \code{na.action} setting of
 \code{options} (usually \code{na.omit}).}
+
+\item{tol}{Numerical tolerance for determining rank of instruments and
+covariates}
 }
 \value{
 An object of class \code{"IVResults"}.

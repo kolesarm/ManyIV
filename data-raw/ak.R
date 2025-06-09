@@ -1,5 +1,5 @@
 ## Download NEW7080.rar from
-## http://economics.mit.edu/faculty/angrist/data1/data/angkru1991
+## https://economics.mit.edu/people/faculty/josh-angrist/angrist-data-archive
 ## Then unrar to get .dta file
 
 ## Note v17: sob (FIPS code)
@@ -49,5 +49,3 @@ ak80$sob <- factor(ak80$sob, levels=as.character(sort(unique(ak80$sob))),
 ak80 <- ak80[, c("age", "education", "lwage", "married", "qob", "sob",
                  "black", "smsa", "yob", "division")]
 usethis::use_data(ak80, overwrite=TRUE, internal=FALSE)
-## Store as Stata to compare results
-foreign::write.dta(ak80, "ak80.dta")

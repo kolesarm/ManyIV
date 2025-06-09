@@ -16,9 +16,11 @@
 #' @param na.action A function indicating what should happen when the data
 #'     contain \code{NA}s. The default is set by the \code{na.action} setting of
 #'     \code{options} (usually \code{na.omit}).
+#' @param tol Numerical tolerance for determining rank of instruments and
+#'     covariates
 #' @return An object of class \code{"IVResults"}.
 #' @export
-ujive <- function(formula, data, subset, na.action) {
+ujive <- function(formula, data, subset, na.action, tol=1e-8) {
     cl <- mf <- match.call(expand.dots = FALSE)
     if (missing(data))
         data <- environment(formula)
@@ -30,131 +32,137 @@ ujive <- function(formula, data, subset, na.action) {
     mf$formula <- formula
     mf[[1L]] <- quote(stats::model.frame)
     mf <- eval(mf, parent.frame())
-
     Y <- stats::model.response(mf, "numeric")
     mtX <- stats::terms(formula, data = data, rhs = 1)
-    Xname <- attr(mtX, "term.labels")[1]
-    W <- stats::model.matrix(mtX, mf)
-    X <- W[, Xname]
-    W <- Matrix::Matrix(W[, !(colnames(W) %in% Xname), drop=FALSE])
+    Dname <- attr(mtX, "term.labels")[1]
+    W <- Matrix::Matrix(Matrix::sparse.model.matrix(mtX, mf))
+    D <- W[, Dname]
+    W <- W[, !(colnames(W) %in% Dname), drop=FALSE]
     mtZ <- stats::delete.response(stats::terms(formula, data = data, rhs = 2))
-    Z <- stats::model.matrix(mtZ, mf)
+    Z <- Matrix::Matrix(Matrix::sparse.model.matrix(mtZ, mf))
     ## Remove intercept
     Z <- Matrix::Matrix(Z[, !colnames(Z) %in% colnames(W), drop=FALSE])
 
-    d <- IVData(Y, X, Z, W, moments=FALSE)
+    ## Drop zero columns
+    Wsum <- Matrix::colSums(W!=0)
+    Zsum <- Matrix::colSums(Z!=0)
+    idxW0 <- which(Wsum==0)
+    idxZ0 <- which(Zsum==0)
+    ret_idx <- names(c(idxW0, idxZ0))
+    if (length(idxZ0) > 0) Z <- Z[, -idxZ0]
+    if (length(idxW0) > 0) W <- W[, -idxW0]
 
-    structure(list(IVData=d, call=cl, estimate=as.data.frame(ujive.fit(d))),
+    ## TODO: Drop singletons
+    ## idxW1 <- which(Wsum==1)
+    ## idxZ1 <- which(Zsum==1)
+    ## drp_idx <- c(which(Matrix::rowSums(Z[, idxZ1])>0),
+    ##              which(Matrix::rowSums(W[, idxW1])>0))
+    ## if (length(c(idxZ0, idxZ1)) > 0) Z <- Z[, -c(idxZ0, idxZ1)]
+    ## if (length(c(idxW0, idxW1)) > 0) W <- W[, -c(idxW0, idxW1)]
+    ## if (length(drp_idx)>0) {
+    ##     Z <- Z[-drp_idx, , drop=FALSE]
+    ##     W <- W[-drp_idx, , drop=FALSE]
+    ##     Y <- Y[-drp_idx]
+    ##     D <- D[-drp_idx]
+    ##     message("Dropping: ", length(drp_idx),
+    ##             " observations with singleton fixed effects.")
+    ## }
+    ## qrX and qrW will typically be sparse, so we will work with those
+
+    ## Remove collinear columns, suppress warning about collinearity
+    qrW <- Matrix::qr(W)
+    if (length(idxW <- drp(qrW, tol))>0) {
+        message("Dropping the following collinear controls: ",
+                paste(colnames(W)[idxW], collapse="\n, "))
+        ret_idx <- c(ret_idx, colnames(W)[idxW])
+        W <- W[, -idxW]
+        qrW <- Matrix::qr(W) # TODO: use qrdelete analog
+        stopifnot(length(drp(qrW, tol))==0)
+    }
+
+    suppressWarnings(qrX <- Matrix::qr(cbind(W, Z)))
+    if (length(drp(qrX, tol))>0) {
+        ## If not sparse QR, convert to standard matrix
+        Zt <- Matrix::qr.resid(qrW, if (is.qr(qrW)) as.matrix(Z) else Z)
+        idx0 <- which(Matrix::colSums(abs(Zt))<=tol)
+        if (length(idx0>0)) {
+            message("Dropping ", length(idx0),
+                    " instruments with no variation conditional on controls")
+            ret_idx <- c(ret_idx, colnames(Z)[idx0])
+            Zt <- Zt[, -idx0]
+            Z <- Z[, -idx0]
+        }
+        qrZZ <- Matrix::qr(Matrix::crossprod(Zt))
+        idxZ <- drp(qrZZ, tol)
+        if (length(idxZ)>0) {
+            message("Dropping ", length(idxZ), " collinear instruments.")
+            ret_idx <- c(ret_idx, colnames(Z)[idxZ])
+            Z <- Z[, -idxZ]
+        }
+        qrX <- Matrix::qr(cbind(W, Z)) # TODO: use qrdelete analog
+        stopifnot(length(drp(qrX, tol))==0)
+    }
+
+    structure(list(IVData=list(Z=Z, D=D, W=W, Y=Y),
+                   call=cl,
+                   drop_idx = ret_idx,
+                   estimate=as.data.frame(ujive.fit(Y, D, qrX, qrW))),
               class="IVResults")
 }
 
+drp <- function(qrA, tol) {
+    isqrA <- is.qr(qrA)
+    ## Diagonal of the R matrix
+    dR <- abs(if (isqrA) diag(qrA$qr) else abs(Matrix::diag(qrA@R)))
+    d <- max(dim(if (isqrA) qrA$qr else qrA))
+    dr <- which(dR < d * tol * max(dR))
+    ## For some reason, the permutation vector q starts at 0
+    ret <- if (isqrA) qrA$pivot[dr] else (qrA@q+1)[dr]
+    ret
+}
 
-ujive.fit <- function(d) {
-    Z <- d$Z
-    W <- d$W
-    Y <- d$Y[, 1]
-    D <- d$Y[, 2]
 
-    X <- cbind(Z, W)
-    X0 <- Matrix::solve(Matrix::crossprod(X), Matrix::t(X)) # (X'X)^{-1}X'
-    W0 <- Matrix::solve(Matrix::crossprod(W), Matrix::t(W))
-    diagH <- function(x, x0) Matrix::colSums(Matrix::t(x) * x0)
-    proj <- function(x, x0, y) Matrix::crossprod(x0, Matrix::crossprod(x, y))
-    dX <- diagH(X, X0)
-    dW <- diagH(W, W0)
-    DtX <- D-proj(X, X0, D)
-    DtW <- D-proj(W, W0, D)
 
-    Dtsls <- DtW-DtX
-    Dujive <- Dtsls - (dX-dW) / (1-dX)*DtX
-    Zjive1 <- D-1 / (1-dX)*DtX
-    Djive1 <- Zjive1 - proj(W, W0, Zjive1)
-    Dojive <- Zjive1 - D + 1 / (1-dW)*DtW
-    Zijive <- DtW - 1 / (1-dX+dW)*DtX
-    Dijive <- Zijive - proj(W, W0, Zijive)
+ujive.fit <- function(Y, D, qrX, qrW) {
+    ## Diagonals of projection matrices
+    dW <- Matrix::rowSums(Matrix::qr.Q(qrW)^2)
+    dX <- Matrix::rowSums(Matrix::qr.Q(qrX)^2)
+    dM <- 1-dX
+    MX <- function(A) Matrix::qr.resid(qrX, A)
+
+    ## Treatment residuals
+    HD <- Matrix::qr.fitted(qrX, D)-Matrix::qr.fitted(qrW, D)
+    DtW <- Matrix::qr.resid(qrW, D)
+    MD <- DtW-HD
+    Dujive <- HD - (dX-dW) / dM * MD
+    Djive1 <- DtW-Matrix::qr.resid(qrW, MD/dM)
+    Dojive <- DtW / (1-dW) - MD/dM
+    Dijive <- DtW-Matrix::qr.resid(qrW, MD / (dM+dW))
 
     ## TSLS, UJIVE, old UJIVE, IJIVE, JIVE1
-    Dlist <- list(DtW, Dtsls, Dujive, Dojive, Dijive, Djive1)
+    Dlist <- list(DtW, HD, Dujive, Dojive, Dijive, Djive1)
     den <- vapply(Dlist, function(x) sum(x*D), numeric(1))
     num <- vapply(Dlist, function(x) sum(x*Y), numeric(1))
     est <- num/den
     names(est) <- c("ols", "tsls", "ujive", "old ujive", "ijive1", "jive1")
 
     ## Textbook robust
-    YtW <- Y-proj(W, W0, Y)
+    YtW <- Matrix::qr.resid(qrW, Y)
     epD <- (YtW - DtW %o% est)*do.call(cbind, Dlist) # epsilon*Dhat
     text <- Matrix::colSums(epD^2)
     ## HTE robust
-    YtX <- Y-proj(X, X0, Y)
-    GYtsls <- YtW-YtX-Dtsls*est[2]
-    DYujive <- (dX-dW) / (1-dX) * (Y-D*est[3])
-    GYujive <- YtW-YtX-Dtsls*est[3] - DYujive + proj(X, X0, DYujive)
-    DYjive1 <- 1 / (1-dX) * (YtW-DtW*est[6])
-    GYjive1 <- (YtW-DtW*est[6]) - DYjive1 + proj(X, X0, DYjive1)
-    DYujivW <- 1 / (1-dW) * (Y-D*est[4])
-    DYujivX <- 1 / (1-dX) * (Y-D*est[4])
-    GYojive <- DYujivW-DYujivX-proj(W, W0, DYujivW)+proj(X, X0, DYujivX)
-    DYijiv1 <- 1 / (1-dX+dW) * (Y-D*est[5])
-    DYijiv2 <- (Y-D*est[5])-DYijiv1+proj(X, X0, DYijiv1)-proj(W, W0, DYijiv1)
-    GYijive <- DYijiv2 - proj(W, W0, DYijiv2)
+    HY <- Matrix::qr.fitted(qrX, Y)-Matrix::qr.fitted(qrW, Y)
+    GYtsls <- HY-HD*est[2]
+    GYujive <- HY-HD*est[3] - MX((dX-dW) / dM * (Y-D*est[3]))
+    GYjive1 <- YtW-DtW*est[6] - MX((YtW-DtW*est[6]) / dM)
+    GYojive <- Matrix::qr.resid(qrW, (Y-D*est[4]) / (1-dW))-
+        MX((Y-D*est[4]) / dM)
+    GYijive <- YtW-DtW*est[5]-MX((YtW-DtW*est[5]) / (dM+dW))
 
     GY <- cbind(0, GYtsls, GYujive, GYojive, GYijive, GYjive1)
-    hte <- Matrix::colSums((GY*DtX+epD)^2)
+    hte <- Matrix::colSums((GY*MD+epD)^2)
     r <- cbind(estimate=est,
                se_text=sqrt(text/den^2),
                se_hte=sqrt(hte/den^2))
     r
-}
-
-
-jive.fit <- function(Y, D, Z, W) {
-    X <- cbind(Z, W)
-    diagH <- function(x) {
-        Matrix::colSums(Matrix::t(x) *
-                            Matrix::solve(Matrix::crossprod(x), Matrix::t(x)))
-    }
-    ols <- function(X, Y) {
-        Matrix::solve(Matrix::crossprod(X), Matrix::crossprod(X, Y))
-    }
-    proj <- function(x, y) Matrix::drop(x %*% ols(x, y))
-
-    ## Reduced form coeffs
-    DX <- diagH(X)
-    DW <- diagH(W)
-    Zhat <- (proj(X, D)-DX*D) / (1-DX)
-    Dhat <- Zhat - (proj(W, D)-DW*D) / (1-DW)
-
-    Yt <- Y-proj(W, Y)
-    Dt <- D-proj(W, D)
-    Zt <- Z-proj(W, Z)
-    Rt <- Zt %*% ols(X, cbind(Y, D))[seq_len(ncol(Z)), ]
-
-    ## (TSLS, JIVE1, UJIVE)
-    be  <- c(sum(Rt[, 1]*Rt[, 2]) / sum(Rt[, 2]^2),
-             sum(Zhat*Yt)/sum(Zhat*Dt),
-             sum(Dhat*Y)/sum(Dhat*D))
-    ## Standard errors
-    epsilon <- function(beta) Yt-Dt*beta
-    U <- cbind(Y, D)-X %*% ols(X, cbind(Y, D))
-    num1 <- vapply(be, function(b) mean(epsilon(b)^2), numeric(1))
-    den1 <- c(sum(D*proj(Zt, D)), sum(Zhat*Dt), sum(Dhat*D))
-    num2 <- vapply(be, function(b) sum(epsilon(b)^2*Rt[, 2]^2), numeric(1))
-    ff <- function(b) sum((epsilon(b)*Rt[, 2] + (Rt[, 1]-Rt[, 2]*b)*U[, 2])^2)
-    num3 <- vapply(be, ff, numeric(1))
-    ## Many weak term
-    A <- (U[, 1]-U[, 2]*be[3])*Zt
-    B <- U[, 2]*Zt
-    AA <- Matrix::solve(Matrix::crossprod(Zt), Matrix::crossprod(A))
-    BB <- Matrix::solve(Matrix::crossprod(Zt), Matrix::crossprod(B))
-    CC <- Matrix::solve(Matrix::crossprod(Zt), Matrix::crossprod(A, B))
-    w1 <- sum(diag(as.matrix(AA) %*% as.matrix(BB)))
-    w2 <- sum(diag(as.matrix(CC) %*% as.matrix(CC)))
-    mi <- c(NA, w1+w2, w1+w2)
-    estimate <- cbind(be, sqrt(num1/ifelse(den1<0, NA, den1)),
-                      sqrt(num2/den1^2), sqrt(num3/den1^2),
-                      sqrt(mi+num3)/abs(den1))
-    rownames(estimate) <- c("TSLS", "JIVE1", "UJIVEold")
-    colnames(estimate) <- c("Estimate", "Homosks", "Het. Robust", "HTE Robust",
-                            "MW Robust")
-    list(estimate=estimate, r=den1)
 }
