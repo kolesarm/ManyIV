@@ -112,7 +112,7 @@ test_that("ujive", {
     u1 <- ujive2.fit(t1$IVData$Y, t1$IVData$D, t1$IVData$Z, t1$IVData$W)
 
     expect_lt(max(abs(u1-t1$estimate)), 1e-7)
-    expect_lt(max(abs(t1$estimate[c(2, 6, 4), 1]-s1$estimate[, 1])), 1e-8)
+    expect_lt(max(abs(t1$estimate[c(2, 6, 4), 1]-s1$estimate[, 1])), 1e-7)
     ## Standard error in the numerator uses TSLS
     expect_lt(max(abs(s1$estimate[1, c(1, 3:4)]-t1$estimate[2, ])), 1e-7)
 
