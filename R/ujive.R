@@ -43,34 +43,35 @@ ujive <- function(formula, data, subset, na.action, tol=1e-8) {
     ## Remove intercept
     Z <- Matrix::Matrix(Z[, !colnames(Z) %in% colnames(W), drop=FALSE])
 
+    ## qrX and qrW will typically be sparse, so we will work with those
+    r <- remove_collinear(Y, D, W, Z, tol)
+    ret <- ujive.fit(r$Y, r$D, r$qrX, r$qrW, tol)
+    structure(list(IVData=list(Z=r$Z, D=r$D, W=r$W, Y=r$Y, F=ret$F, k=ret$k,
+                               n=ret$n, l=ret$l), call=cl,
+                   drop_idx = r$ret_idx, estimate=ret$r),
+              class="IVResults")
+}
+
+remove_collinear <- function(Y, D, W, Z, tol) {
     ## Drop zero columns
     Wsum <- Matrix::colSums(W!=0)
-    Zsum <- Matrix::colSums(Z!=0)
+    idxW1 <- which(Wsum==1)
+    if (length(idxW1) > 0) {
+        idxW1_drop <- which(Matrix::rowSums(W[, idxW1])>0)
+        message("Dropping ", length(idxW1_drop), " obs with singleton",
+                " covariates")
+        stopifnot(length(idxW1)==length(idxW1_drop))
+        W <- W[-idxW1_drop, -idxW1]
+        Z <- Z[-idxW1_drop, ]
+        Y <- Y[-idxW1_drop]
+        D <- D[-idxW1_drop]
+    }
     idxW0 <- which(Wsum==0)
-    idxZ0 <- which(Zsum==0)
-    ret_idx <- names(c(idxW0, idxZ0))
-    if (length(idxZ0) > 0) Z <- Z[, -idxZ0]
     if (length(idxW0) > 0) W <- W[, -idxW0]
-
-    ## TODO: Drop singletons
-    ## idxW1 <- which(Wsum==1)
-    ## idxZ1 <- which(Zsum==1)
-    ## drp_idx <- c(which(Matrix::rowSums(Z[, idxZ1])>0),
-    ##              which(Matrix::rowSums(W[, idxW1])>0))
-    ## if (length(c(idxZ0, idxZ1)) > 0) Z <- Z[, -c(idxZ0, idxZ1)]
-    ## if (length(c(idxW0, idxW1)) > 0) W <- W[, -c(idxW0, idxW1)]
-    ## if (length(drp_idx)>0) {
-    ##     Z <- Z[-drp_idx, , drop=FALSE]
-    ##     W <- W[-drp_idx, , drop=FALSE]
-    ##     Y <- Y[-drp_idx]
-    ##     D <- D[-drp_idx]
-    ##     message("Dropping: ", length(drp_idx),
-    ##             " observations with singleton fixed effects.")
-    ## }
-    ## qrX and qrW will typically be sparse, so we will work with those
 
     ## Remove collinear columns, suppress warning about collinearity
     qrW <- Matrix::qr(W)
+    ret_idx <- vector()
     if (length(idxW <- drp(qrW, tol))>0) {
         message("Dropping the following collinear controls: ",
                 paste(colnames(W)[idxW], collapse="\n, "))
@@ -80,17 +81,28 @@ ujive <- function(formula, data, subset, na.action, tol=1e-8) {
         stopifnot(length(drp(qrW, tol))==0)
     }
 
+    Zsum <- Matrix::colSums(Z!=0)
+    idxZ0 <- which(Zsum==0)
+    ret_idx <- names(c(idxW0, idxW1, idxZ0))
+    if (length(idxZ0) > 0) Z <- Z[, -idxZ0]
+
     suppressWarnings(qrX <- Matrix::qr(cbind(W, Z)))
     if (length(drp(qrX, tol))>0) {
         ## If not sparse QR, convert to standard matrix
         Zt <- Matrix::qr.resid(qrW, if (is.qr(qrW)) as.matrix(Z) else Z)
-        idx0 <- which(Matrix::colSums(abs(Zt))<=tol)
+        idx0 <- which(Matrix::colSums(abs(Zt)) <= tol)
         if (length(idx0>0)) {
-            message("Dropping ", length(idx0),
-                    " instruments with no variation conditional on controls")
+            idx_drop <- which(Matrix::rowSums(Z[, idx0])>0)
+            message("Dropping ", length(idx_drop), " obs with ",
+                    "no variation in IV conditional on controls")
             ret_idx <- c(ret_idx, colnames(Z)[idx0])
-            Zt <- Zt[, -idx0]
-            Z <- Z[, -idx0]
+            Z <- Z[-idx_drop, -idx0]
+            Zt <- Zt[-idx_drop, -idx0]
+            W <- W[-idx_drop, ]
+            W <- W[, Matrix::colSums(abs(W))>0]
+            qrW <- Matrix::qr(W)
+            Y <- Y[-idx_drop]
+            D <- D[-idx_drop]
         }
         qrZZ <- Matrix::qr(Matrix::crossprod(Zt))
         idxZ <- drp(qrZZ, tol)
@@ -102,13 +114,9 @@ ujive <- function(formula, data, subset, na.action, tol=1e-8) {
         qrX <- Matrix::qr(cbind(W, Z)) # TODO: use qrdelete analog
         stopifnot(length(drp(qrX, tol))==0)
     }
-
-    structure(list(IVData=list(Z=Z, D=D, W=W, Y=Y),
-                   call=cl,
-                   drop_idx = ret_idx,
-                   estimate=as.data.frame(ujive.fit(Y, D, qrX, qrW))),
-              class="IVResults")
+    list(qrX=qrX, qrW=qrW, Y=Y, D=D, W=W, Z=Z, ret_idx=ret_idx)
 }
+
 
 drp <- function(qrA, tol) {
     isqrA <- is.qr(qrA)
@@ -123,7 +131,7 @@ drp <- function(qrA, tol) {
 
 
 
-ujive.fit <- function(Y, D, qrX, qrW) {
+ujive.fit <- function(Y, D, qrX, qrW, tol) {
     ## Diagonals of projection matrices
     dW <- Matrix::rowSums(Matrix::qr.Q(qrW)^2)
     dX <- Matrix::rowSums(Matrix::qr.Q(qrX)^2)
@@ -134,10 +142,15 @@ ujive.fit <- function(Y, D, qrX, qrW) {
     HD <- Matrix::qr.fitted(qrX, D)-Matrix::qr.fitted(qrW, D)
     DtW <- Matrix::qr.resid(qrW, D)
     MD <- DtW-HD
-    Dujive <- HD - (dX-dW) / dM * MD
-    Djive1 <- DtW-Matrix::qr.resid(qrW, MD/dM)
+    ## Zero out cases with leverage one
+    idx0 <- dX > 1-tol
+    ddM <- function(A) ifelse(idx0, 0L, A/dM)
+
+    Dujive <- HD - MD * (dX-dW)/dM
+    Djive1 <- DtW-Matrix::qr.resid(qrW, ddM(MD))
     Dojive <- DtW / (1-dW) - MD/dM
     Dijive <- DtW-Matrix::qr.resid(qrW, MD / (dM+dW))
+    Dujive[idx0] <- Dojive[idx0] <- Dijive[idx0] <- 0L
 
     ## TSLS, UJIVE, old UJIVE, IJIVE, JIVE1
     Dlist <- list(DtW, HD, Dujive, Dojive, Dijive, Djive1)
@@ -145,6 +158,8 @@ ujive.fit <- function(Y, D, qrX, qrW) {
     num <- vapply(Dlist, function(x) sum(x*Y), numeric(1))
     est <- num/den
     names(est) <- c("ols", "tsls", "ujive", "old ujive", "ijive1", "jive1")
+    if(sum(idx0)>0)
+        message("Zeroing out ", sum(idx0), " observations with leverage one.")
 
     ## Textbook robust
     YtW <- Matrix::qr.resid(qrW, Y)
@@ -153,16 +168,18 @@ ujive.fit <- function(Y, D, qrX, qrW) {
     ## HTE robust
     HY <- Matrix::qr.fitted(qrX, Y)-Matrix::qr.fitted(qrW, Y)
     GYtsls <- HY-HD*est[2]
-    GYujive <- HY-HD*est[3] - MX((dX-dW) / dM * (Y-D*est[3]))
-    GYjive1 <- YtW-DtW*est[6] - MX((YtW-DtW*est[6]) / dM)
+    GYujive <- HY-HD*est[3] - MX((Y-D*est[3]) * ddM(dX-dW))
+    GYjive1 <- YtW-DtW*est[6] - MX(ddM(YtW-DtW*est[6]))
     GYojive <- Matrix::qr.resid(qrW, (Y-D*est[4]) / (1-dW))-
-        MX((Y-D*est[4]) / dM)
+        MX(ddM(Y-D*est[4]))
     GYijive <- YtW-DtW*est[5]-MX((YtW-DtW*est[5]) / (dM+dW))
+    GYujive[idx0] <- GYojive[idx0] <- GYijive[idx0] <- 0L
 
     GY <- cbind(0, GYtsls, GYujive, GYojive, GYijive, GYjive1)
     hte <- Matrix::colSums((GY*MD+epD)^2)
-    r <- cbind(estimate=est,
-               se_text=sqrt(text/den^2),
-               se_hte=sqrt(hte/den^2))
-    r
+    r <- cbind(estimate=est, se_text=sqrt(text/den^2), se_hte=sqrt(hte/den^2))
+    n <- dim(qrX)[1]
+    k <- dim(qrX)[2]-dim(qrW)[2]
+    Fhom <- sum(HD^2)/sum(MD^2) * (n-dim(qrX)[2]) / k
+    list(r=as.data.frame(r), F=Fhom, n=n, k=k, l=dim(qrW)[2])
 }

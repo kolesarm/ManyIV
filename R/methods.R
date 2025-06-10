@@ -14,7 +14,9 @@ print.IVResults <- function(x, digits = getOption("digits"), ...) {
         colnames(r) <- c(c("Estimate", "Conv. robust SE",
                            "HTE robust SE"))
 
-    cat("\nFirst-stage F: ", x$IVData$F, "\n\n")
+    cat("\nFirst-stage F: ", round(x$IVData$F, 1))
+    cat(",", x$IVData$n, "obs, ", x$IVData$k, "IVs, ",
+        x$IVData$l, " controls\n\n")
     cat("Estimates and standard errors:\n")
 
     print.data.frame(r, digits = digits, ...)

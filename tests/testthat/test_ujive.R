@@ -129,7 +129,7 @@ test_that("ujive", {
     expect_message(t2a <- ujive(lwage~education+as.factor(yob) |
                                     0+qob*as.factor(yob), data=ak80))
     expect_lt(max(abs(t2$estimate-t2a$estimate)), 1e-9)
-    MM <- model.matrix(~0+qob*as.factor(yob), data=ak80)
+    MM <- model.matrix(~0+qob:as.factor(yob), data=ak80)
     colnames(MM) <- NULL
     expect_message(t2b <- ujive(lwage~education+as.factor(yob) | MM, data=ak80))
     expect_lt(max(abs(t2$estimate-t2b$estimate)), 1e-9)
