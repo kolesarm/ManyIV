@@ -57,14 +57,14 @@ remove_collinear <- function(Y, D, W, Z, tol) {
     Wsum <- Matrix::colSums(W!=0)
     idxW1 <- which(Wsum==1)
     if (length(idxW1) > 0) {
-        idxW1_drop <- which(Matrix::rowSums(W[, idxW1])>0)
-        message("Dropping ", length(idxW1_drop), " obs with singleton",
+        W1drop <- which(Matrix::rowSums(W[, idxW1])>0)
+        message("Dropping ", length(W1drop), " obs with singleton",
                 " covariates")
-        stopifnot(length(idxW1)==length(idxW1_drop))
-        W <- W[-idxW1_drop, -idxW1]
-        Z <- Z[-idxW1_drop, ]
-        Y <- Y[-idxW1_drop]
-        D <- D[-idxW1_drop]
+        stopifnot(length(idxW1)==length(W1drop))
+        W <- W[-W1drop, -idxW1]
+        Z <- Z[-W1drop, ]
+        Y <- Y[-W1drop]
+        D <- D[-W1drop]
     }
     idxW0 <- which(Wsum==0)
     if (length(idxW0) > 0) W <- W[, -idxW0]
@@ -92,17 +92,17 @@ remove_collinear <- function(Y, D, W, Z, tol) {
         Zt <- Matrix::qr.resid(qrW, if (is.qr(qrW)) as.matrix(Z) else Z)
         idx0 <- which(Matrix::colSums(abs(Zt)) <= tol)
         if (length(idx0>0)) {
-            idx_drop <- which(Matrix::rowSums(Z[, idx0])>0)
-            message("Dropping ", length(idx_drop), " obs with ",
+            Zdrop <- which(Matrix::rowSums(Z[, idx0])>0)
+            message("Dropping ", length(Zdrop), " obs with ",
                     "no variation in IV conditional on controls")
             ret_idx <- c(ret_idx, colnames(Z)[idx0])
-            Z <- Z[-idx_drop, -idx0]
-            Zt <- Zt[-idx_drop, -idx0]
-            W <- W[-idx_drop, ]
+            Z <- Z[-Zdrop, -idx0]
+            Zt <- Zt[-Zdrop, -idx0]
+            W <- W[-Zdrop, ]
             W <- W[, Matrix::colSums(abs(W))>0]
             qrW <- Matrix::qr(W)
-            Y <- Y[-idx_drop]
-            D <- D[-idx_drop]
+            Y <- Y[-Zdrop]
+            D <- D[-Zdrop]
         }
         qrZZ <- Matrix::qr(Matrix::crossprod(Zt))
         idxZ <- drp(qrZZ, tol)
@@ -158,7 +158,7 @@ ujive.fit <- function(Y, D, qrX, qrW, tol) {
     num <- vapply(Dlist, function(x) sum(x*Y), numeric(1))
     est <- num/den
     names(est) <- c("ols", "tsls", "ujive", "old ujive", "ijive1", "jive1")
-    if(sum(idx0)>0)
+    if (sum(idx0)>0)
         message("Zeroing out ", sum(idx0), " observations with leverage one.")
 
     ## Textbook robust
