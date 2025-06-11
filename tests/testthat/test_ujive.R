@@ -138,4 +138,10 @@ test_that("ujive", {
                                    qob*as.factor(yob),
                                data=ak80, subset=ak80$sob=="AK"))
     expect_equal(length(t4$drop_idx), 7L)
+
+    ## Single instrument
+    ts <- ujive(lwage~education+married | I(qob=="Q1"), data=ak80)
+    tm <- IVreg(lwage~education+married | I(qob=="Q1"), data=ak80)
+    expect_equal(tm$IVData$F, ts$IVData$F)
+    expect_lt(max(abs(ts$estimate[1:2, 1:2]-tm$estimate[1:2, c(1, 3)])), 1e-8)
 })

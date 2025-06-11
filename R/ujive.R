@@ -54,23 +54,24 @@ ujive <- function(formula, data, subset, na.action, tol=1e-8) {
 
 remove_collinear <- function(Y, D, W, Z, tol) {
     ## Drop zero columns
-    Wsum <- Matrix::colSums(W!=0)
+
+   Wsum <- Matrix::colSums(W!=0)
     idxW1 <- which(Wsum==1)
     if (length(idxW1) > 0) {
         W1drop <- which(Matrix::rowSums(W[, idxW1])>0)
         message("Dropping ", length(W1drop), " obs with singleton",
                 " covariates")
         stopifnot(length(idxW1)==length(W1drop))
-        W <- W[-W1drop, -idxW1]
-        Z <- Z[-W1drop, ]
+        W <- W[-W1drop, -idxW1, drop=FALSE]
+        Z <- Z[-W1drop, , drop=FALSE]
         Y <- Y[-W1drop]
         D <- D[-W1drop]
     }
     idxW0 <- which(Wsum==0)
     if (length(idxW0) > 0) W <- W[, -idxW0]
 
-    ## Remove collinear columns, suppress warning about collinearity
-    qrW <- Matrix::qr(W)
+    ## Suppress warning matrix rank deficient
+    qrW <- suppressWarnings(Matrix::qr(W))
     ret_idx <- vector()
     if (length(idxW <- drp(qrW, tol))>0) {
         message("Dropping the following collinear controls: ",
@@ -85,7 +86,7 @@ remove_collinear <- function(Y, D, W, Z, tol) {
     idxZ0 <- which(Zsum==0)
     ret_idx <- names(c(idxW0, idxW1, idxZ0))
     if (length(idxZ0) > 0) Z <- Z[, -idxZ0]
-
+    ## Suppress warning matrix rank deficient
     suppressWarnings(qrX <- Matrix::qr(cbind(W, Z)))
     if (length(drp(qrX, tol))>0) {
         ## If not sparse QR, convert to standard matrix
@@ -125,6 +126,8 @@ drp <- function(qrA, tol) {
     d <- max(dim(if (isqrA) qrA$qr else qrA))
     dr <- which(dR < d * tol * max(dR))
     ## For some reason, the permutation vector q starts at 0
+    ## ea <- Matrix::expand2(qrA, complete = FALSE)
+    ## ea$P1. %*% ea$Q1 %*% ea$R1 == A[, qrA@q+1]
     ret <- if (isqrA) qrA$pivot[dr] else (qrA@q+1)[dr]
     ret
 }
@@ -134,6 +137,8 @@ drp <- function(qrA, tol) {
 ujive.fit <- function(Y, D, qrX, qrW, tol) {
     ## Diagonals of projection matrices
     dW <- Matrix::rowSums(Matrix::qr.Q(qrW)^2)
+    stopifnot(max(dW)<1-tol)
+
     dX <- Matrix::rowSums(Matrix::qr.Q(qrX)^2)
     dM <- 1-dX
     MX <- function(A) Matrix::qr.resid(qrX, A)
@@ -178,8 +183,10 @@ ujive.fit <- function(Y, D, qrX, qrW, tol) {
     GY <- cbind(0, GYtsls, GYujive, GYojive, GYijive, GYjive1)
     hte <- Matrix::colSums((GY*MD+epD)^2)
     r <- cbind(estimate=est, se_text=sqrt(text/den^2), se_hte=sqrt(hte/den^2))
-    n <- dim(qrX)[1]
-    k <- dim(qrX)[2]-dim(qrW)[2]
-    Fhom <- sum(HD^2)/sum(MD^2) * (n-dim(qrX)[2]) / k
-    list(r=as.data.frame(r), F=Fhom, n=n, k=k, l=dim(qrW)[2])
+    n <- length(Y)
+    kl <- if (is.qr(qrX)) qrX$rank else dim(qrX)[2]
+    k <- kl - if (is.qr(qrW)) qrW$rank else dim(qrW)[2]
+    Fhom <- sum(HD^2)/sum(MD^2) * (n-kl) / k
+
+    list(r=as.data.frame(r), F=Fhom, n=n, k=k, l=kl-k)
 }
