@@ -54,8 +54,7 @@ ujive <- function(formula, data, subset, na.action, tol=1e-8) {
 
 remove_collinear <- function(Y, D, W, Z, tol) {
     ## Drop zero columns
-
-   Wsum <- Matrix::colSums(W!=0)
+    Wsum <- Matrix::colSums(W!=0)
     idxW1 <- which(Wsum==1)
     if (length(idxW1) > 0) {
         W1drop <- which(Matrix::rowSums(W[, idxW1])>0)

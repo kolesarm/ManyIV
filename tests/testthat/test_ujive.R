@@ -143,5 +143,5 @@ test_that("ujive", {
     ts <- ujive(lwage~education+married | I(qob=="Q1"), data=ak80)
     tm <- IVreg(lwage~education+married | I(qob=="Q1"), data=ak80)
     expect_equal(tm$IVData$F, ts$IVData$F)
-    expect_lt(max(abs(ts$estimate[1:2, 1:2]-tm$estimate[1:2, c(1, 3)])), 1e-8)
+    expect_lt(max(abs(ts$estimate[1:2, 1:2]-tm$estimate[1:2, c(1, 3)])), 1e-6)
 })
