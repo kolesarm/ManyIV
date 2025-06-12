@@ -147,4 +147,25 @@ test_that("ujive", {
     tm <- IVreg(lwage~education+married | I(qob=="Q1"), data=ak80)
     expect_equal(tm$IVData$F, ts$IVData$F)
     expect_lt(max(abs(ts$estimate[1:2, 1:2]-tm$estimate[1:2, c(1, 3)])), 1e-6)
+
+    ## FHL data
+    fm <- droplevels(fhl[1:1000, ])
+    t0 <- ujive(ln_total_patents_appl~dallowed+ind_year | examiner, data=fm)
+    ## reconstruct W and Z
+    W <- Matrix::Matrix(model.matrix(~ ind_year, data=fm))
+    Z <- Matrix::Matrix(model.matrix(~ examiner, data=fm))
+    Z <- Matrix::Matrix(Z[, !colnames(Z) %in% colnames(W), drop=FALSE])
+    expect_equal(NCOL(W)+NCOL(Z)-length(t0$drop_col), t0$IVData$k+t0$IVData$l)
+    X <- cbind(W, Z)[-t0$drop_obs, !(colnames(cbind(W, Z)) %in% t0$drop_col)]
+    qrX <- Matrix::qr(X)
+    qrW <- Matrix::qr(W[-t0$drop_obs, !(colnames(W) %in% t0$drop_col)])
+    dX <- unname(Matrix::rowSums(Matrix::qr.Q(qrX)^2))
+    ret <- ujive.fit(fm$ln_total_patents_appl[-t0$drop_obs],
+                     fm$dallowed[-t0$drop_obs], qrX, qrW,
+                     dX, 1e-8)
+    expect_identical(ret$r, t0$estimate)
+    t1 <- ujive(ln_total_patents_appl~dallowed+ind_year | examiner,
+                data=fm[-t0$drop_obs, ])
+    expect_lt(max(abs(t1$estimate - t0$estimate)), 1e-10)
+
 })
