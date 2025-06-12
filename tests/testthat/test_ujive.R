@@ -137,7 +137,10 @@ test_that("ujive", {
     expect_message(t4 <- ujive(lwage~education+as.factor(yob) |
                                    qob*as.factor(yob),
                                data=ak80, subset=ak80$sob=="AK"))
-    expect_equal(length(t4$drop_idx), 7L)
+    expect_equal(length(t4$drop_col), 20L)
+    expect_equal(length(t4$drop_col), 20L)
+    expect_equal(as.numeric(t4$estimate[3, ]),
+                 c(0.090491169, 0.211386425, 0.378517855))
 
     ## Single instrument
     ts <- ujive(lwage~education+married | I(qob=="Q1"), data=ak80)
