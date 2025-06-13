@@ -137,8 +137,8 @@ test_that("ujive", {
     expect_message(t4 <- ujive(lwage~education+as.factor(yob) |
                                    qob*as.factor(yob),
                                data=ak80, subset=ak80$sob=="AK"))
-    expect_equal(length(t4$drop_col), 20L)
-    expect_equal(length(t4$drop_col), 20L)
+    expect_equal(NCOL(t4$IVData$W)+NCOL(t4$IVData$Z)-t4$IVData$k-t4$IVData$l,
+                 18L)
     expect_equal(as.numeric(t4$estimate[3, ]),
                  c(0.090491169, 0.211386425, 0.378517855))
 
@@ -151,19 +151,8 @@ test_that("ujive", {
     ## FHL data
     fm <- droplevels(fhl[1:1000, ])
     t0 <- ujive(ln_total_patents_appl~dallowed+ind_year | examiner, data=fm)
-    ## reconstruct W and Z
-    W <- Matrix::Matrix(model.matrix(~ ind_year, data=fm))
-    Z <- Matrix::Matrix(model.matrix(~ examiner, data=fm))
-    Z <- Matrix::Matrix(Z[, !colnames(Z) %in% colnames(W), drop=FALSE])
-    expect_equal(NCOL(W)+NCOL(Z)-length(t0$drop_col), t0$IVData$k+t0$IVData$l)
-    X <- cbind(W, Z)[-t0$drop_obs, !(colnames(cbind(W, Z)) %in% t0$drop_col)]
-    qrX <- Matrix::qr(X)
-    qrW <- Matrix::qr(W[-t0$drop_obs, !(colnames(W) %in% t0$drop_col)])
-    dX <- unname(Matrix::rowSums(Matrix::qr.Q(qrX)^2))
-    ret <- ujive.fit(fm$ln_total_patents_appl[-t0$drop_obs],
-                     fm$dallowed[-t0$drop_obs], qrX, qrW,
-                     dX, 1e-8)
-    expect_identical(ret$r, t0$estimate)
+    expect_lt(max(abs(t0$estimate[3, ]-c(2.452386784, 2.151379876,
+                                         3.170662565))), 1e-8)
     t1 <- ujive(ln_total_patents_appl~dallowed+ind_year | examiner,
                 data=fm[-t0$drop_obs, ])
     expect_lt(max(abs(t1$estimate - t0$estimate)), 1e-10)
