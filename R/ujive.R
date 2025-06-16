@@ -34,10 +34,10 @@ ujive <- function(formula, data, subset, na.action, tol=1e-8) {
     mf <- eval(mf, parent.frame())
     Y <- stats::model.response(mf, "numeric")
     mtX <- stats::terms(formula, data = data, rhs = 1)
-    Dname <- attr(mtX, "term.labels")[1]
     W <- Matrix::Matrix(Matrix::sparse.model.matrix(mtX, mf))
-    D <- W[, Dname]
-    W <- W[, !(colnames(W) %in% Dname), drop=FALSE]
+    Didx <- 1+attr(mtX, "intercept")
+    D <- W[, Didx]
+    W <- W[, -Didx, drop=FALSE]
     mtZ <- stats::delete.response(stats::terms(formula, data = data, rhs = 2))
     Z <- Matrix::Matrix(Matrix::sparse.model.matrix(mtZ, mf))
     ## Remove intercept
