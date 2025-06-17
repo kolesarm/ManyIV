@@ -4,7 +4,7 @@
 \alias{ujive}
 \title{Jackknife Instrumental variables regression}
 \usage{
-ujive(formula, data, subset, na.action, tol = 1e-08)
+ujive(formula, data, subset, na.action, tol = 1e-08, dropleverage = TRUE)
 }
 \arguments{
 \item{formula}{Specification of the regression relationship and the
@@ -28,6 +28,9 @@ contain \code{NA}s. The default is set by the \code{na.action} setting of
 
 \item{tol}{Numerical tolerance for determining rank of instruments and
 covariates}
+
+\item{dropleverage}{Drop observations with leverage one? if \code{FALSE},
+will not be able to compute UJIVE.}
 }
 \value{
 An object of class \code{"IVResults"}.

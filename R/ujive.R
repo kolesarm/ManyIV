@@ -18,9 +18,12 @@
 #'     \code{options} (usually \code{na.omit}).
 #' @param tol Numerical tolerance for determining rank of instruments and
 #'     covariates
+#' @param dropleverage Drop observations with leverage one? if \code{FALSE},
+#'     will not be able to compute UJIVE.
 #' @return An object of class \code{"IVResults"}.
 #' @export
-ujive <- function(formula, data, subset, na.action, tol=1e-8) {
+ujive <- function(formula, data, subset, na.action, tol=1e-8,
+                  dropleverage=TRUE) {
     cl <- mf <- match.call(expand.dots = FALSE)
     if (missing(data))
         data <- environment(formula)
@@ -48,9 +51,9 @@ ujive <- function(formula, data, subset, na.action, tol=1e-8) {
                                       drop=FALSE]))
 
     ## qrX and qrW will typically be sparse, so we will work with those
-    r <- remove_collinear(W, Z, tol)
+    r <- remove_collinear(W, Z, tol, dropleverage)
 
-   if (length(r$drp) > 0) {
+    if (length(r$drp) > 0) {
         Y <- Y[-r$drp]
         D <- D[-r$drp]
         Z <- Z[-r$drp, ]
@@ -76,20 +79,23 @@ standardize <- function(X) {
     X
 }
 
-remove_collinear <- function(W, Z, tol) {
+remove_collinear <- function(W, Z, tol, dropleverage) {
     X <- cbind(W, Z)
     rownames(X) <- seq_len(NROW(X))
 
     ## 1. First remove leverage one observations
     ## 1a. Remove singletons, this is fast
-    rs <- drp_singleton(X, tol)
+    if (dropleverage)
+        rs <- drp_singleton(X, tol)
+    else
+        rs <- list(drp=NULL, X=X)
     drp_obs <- rs$drp
 
     ## 1b. Remove obs based on leverage, first dropping collinear cols
     qrX <- rr_qr(rs$X, tol)
     dX <- unname(Matrix::rowSums(Matrix::qr.Q(qrX)^2))
     drp_lev <- which(dX>1-tol)
-    if (length(drp_lev)>0) {
+    if (length(drp_lev)>0 && dropleverage) {
         drp_obs <- c(drp_obs, rownames(rs$X[drp_lev, ]))
         message("Dropping ", length(drp_lev), " obs with leverage 1.")
         ## Update qrX and projection diagonal
@@ -100,7 +106,9 @@ remove_collinear <- function(W, Z, tol) {
     if (length(drp_obs)>0) {
         W <- W[-as.numeric(drp_obs), , drop=FALSE]
     }
-    qrW <- rr_qr(drp_singleton(W, tol)$X, tol)
+    if (dropleverage)
+        W <- drp_singleton(W, tol)$X
+    qrW <- rr_qr(W, tol)
 
     list(qrX=qrX, qrW=qrW, dX=dX, drp=as.numeric(drp_obs))
 }
@@ -159,8 +167,6 @@ drp <- function(qrA, tol) {
 ujive.fit <- function(Y, D, qrX, qrW, dX, tol) {
     ## Diagonals of projection matrices
     dW <- Matrix::rowSums(Matrix::qr.Q(qrW)^2)
-    stopifnot(max(dW)<1-tol)
-
     dM <- 1-dX
     MX <- function(A) Matrix::qr.resid(qrX, A)
 

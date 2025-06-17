@@ -164,4 +164,10 @@ test_that("ujive", {
     expect_equal(t2c$IVData$l, 11L)
     expect_lt(max(abs(t2c$estimate[3, ]-c(0.161655652, 0.178677404,
                                           0.258410981))), 1e-8)
+
+    ## Check no leverage dropping
+    expect_warning(t3 <- ujive(ln_total_patents_appl~dallowed+ind_year |
+                                   examiner, data=fm, dropleverage=FALSE))
+    expect_equal(unname(t3$estimate[, 1]), c(0.33976439, 0.432675896, NaN, NaN,
+                                             0.55988285, NaN))
 })
