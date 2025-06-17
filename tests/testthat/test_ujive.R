@@ -157,4 +157,11 @@ test_that("ujive", {
                 data=fm[-t0$drop_obs, ])
     expect_lt(max(abs(t1$estimate - t0$estimate)), 1e-10)
 
+    ## Test scaling
+    t2c <- ujive(lwage~education+as.factor(yob)+I(10^4*age^4) |
+                     0+qob*as.factor(yob), data=ak80[1:50000, ])
+    expect_equal(t2c$IVData$k, 29L)
+    expect_equal(t2c$IVData$l, 11L)
+    expect_lt(max(abs(t2c$estimate[3, ]-c(0.161655652, 0.178677404,
+                                          0.258410981))), 1e-8)
 })

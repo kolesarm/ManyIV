@@ -29,7 +29,8 @@ A data frame with 34,435 observations on 11 variables:
 \item{ln_all_cites5}{log(1 + total citations to subsequent patent
                      applications)}
 
-\item{ln_rounds_before_patent_APP}{log(1 + number of prior VC rounds)}
+\item{ln_rounds_before_patent_APP}{log(1 + number of prior venture
+      capital rounds)}
 
 \item{ind_year}{Art-unit-by-application-year fixed effects.}
 

@@ -32,20 +32,25 @@ ujive <- function(formula, data, subset, na.action, tol=1e-8) {
     mf$formula <- formula
     mf[[1L]] <- quote(stats::model.frame)
     mf <- eval(mf, parent.frame())
+
     Y <- stats::model.response(mf, "numeric")
     mtX <- stats::terms(formula, data = data, rhs = 1)
-    W <- Matrix::Matrix(Matrix::sparse.model.matrix(mtX, mf))
+    W <- Matrix::Matrix(Matrix::sparse.model.matrix(mtX, mf,
+                                                    drop.unused.levels = TRUE))
     Didx <- 1+attr(mtX, "intercept")
     D <- W[, Didx]
-    W <- W[, -Didx, drop=FALSE]
+    W <- standardize(W[, -Didx, drop=FALSE])
     mtZ <- stats::delete.response(stats::terms(formula, data = data, rhs = 2))
-    Z <- Matrix::Matrix(Matrix::sparse.model.matrix(mtZ, mf))
+    Z <- Matrix::Matrix(Matrix::sparse.model.matrix(mtZ, mf,
+                                                    drop.unused.levels = TRUE))
     ## Remove intercept
-    Z <- Matrix::Matrix(Z[, !colnames(Z) %in% colnames(W), drop=FALSE])
+    Z <- standardize(Matrix::Matrix(Z[, !colnames(Z) %in% colnames(W),
+                                      drop=FALSE]))
 
     ## qrX and qrW will typically be sparse, so we will work with those
     r <- remove_collinear(W, Z, tol)
-    if (length(r$drp) > 0) {
+
+   if (length(r$drp) > 0) {
         Y <- Y[-r$drp]
         D <- D[-r$drp]
         Z <- Z[-r$drp, ]
@@ -61,6 +66,14 @@ ujive <- function(formula, data, subset, na.action, tol=1e-8) {
                                l=ret$l), call=cl, drop_obs = r$drp,
                    estimate=ret$r),
               class="IVResults")
+}
+
+## Standardize non-binary columns
+standardize <- function(X) {
+    idx <- which(Matrix::colSums(X!=0 & X!=1)>0)
+    if (length(idx)>0)
+        X[, idx] <- scale(X[, idx])
+    X
 }
 
 remove_collinear <- function(W, Z, tol) {
